@@ -1,7 +1,7 @@
 try {
     "use strict";
 /*Can youhear forever,my heart beat？*/
-    const { app, ipcMain, BrowserWindow } = require('electron'); // 结构引入 Electron 使用的模块
+    const { app, ipcMain, BrowserWindow,Notification  } = require('electron'); // 结构引入 Electron 使用的模块
      const { exec} = require('child_process');
     const path = require('path'); //用于处理路径
     const fs = require('fs'); //用于文件操作
@@ -104,6 +104,7 @@ try {
 
         _enterActiveMonitoringState() 
         { //设置厂轮询检查进程是否运行
+           
           this.monitorIntervalId=setInterval(() => { 
             this._checkProcessExists().then(isProcessRunning => { 
                 if (!isProcessRunning) { //如果程序没有运行进入宽恕期
@@ -117,6 +118,7 @@ try {
 
 
         _enterGracePeriodState() { 
+             showStartupNotification() 
            this.graceTimeoutId =setTimeout(async () => {
                const mainWindow = BrowserWindow.getAllWindows()[0];
              writeLog('[Monitor] 10-minute grace period ended. Game did not start. Pausing acceleration.');
@@ -153,14 +155,10 @@ try {
            },5000)
 
         }
-
-
  
 }
 
 
-
-  
 
 function patchIpcMain(){
 writeLog('[patchIpcMain] App is ready. Patching ipcMain.handle...');
@@ -272,6 +270,23 @@ function patchMainWindowClose(){
 
       });
 }
+function showStartupNotification() {
+    if (process.platform !== 'win32') return; 
+
+    try {
+        const notice = new Notification({
+            title: 'Leigod Smart Monitor 已启用',
+            body: '游戏进程监控已激活。',
+            silent: true,
+           
+        });
+        notice.show();
+        writeLog('[Notification] Startup notification displayed.');
+    } catch (err) {
+        writeLog(`[Notification] Failed to show: ${err.message}`);
+    }
+}
+
 
 
 
@@ -279,6 +294,7 @@ function patchMainWindowClose(){
     writeLog('[Main] Script loaded and log file cleared.');
 
     app.whenReady().then(() => { //完成初始化后执行下面操作
+        showStartupNotification()
          patchIpcMain();
          setTimeout(() => {
         patchMainWindowClose(); // browser-window-created也行 但是不想写了 摸了
