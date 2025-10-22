@@ -32,6 +32,9 @@
   * 不修改雷神官方代码，仅作为“外挂式”增强模块加载。
 
 ### 使用说明
+程序启动后弹出相应提示。
+
+![image](https://github.com/assortest/Leigod_Auto_Pause/blob/main/image/%E5%90%AF%E5%8A%A8%E6%8F%90%E9%86%92.png)
 
 1. **自行打包替换（推荐给开发者）**
    
