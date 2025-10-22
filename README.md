@@ -1,10 +1,14 @@
-**基于 Electron 的雷神加速器（Leigod）增强插件**
+**基于 Electron 的雷神加速器（Leigod）暂停增强插件**
 
+### 启动程序
+
+程序启动后弹出相应提示。
+
+![image](https://github.com/assortest/Leigod_Auto_Pause/blob/main/image/%E5%90%AF%E5%8A%A8%E6%8F%90%E9%86%92.png)
 ## 📌 软件核心功能简述
 
-```
-基于 Electron 的雷神加速器的增强插件用于，自动监控游戏进程状态，自动暂停加速，帮你省下每一分加速时间！
-```
+基于 Electron 的雷神加速器的增强插件，自动监控游戏进程状态，**自动暂停加速**，帮你省下每一分加速时间！
+
 ### 🧠 游戏进程监控
 
 * 在用户通过雷神加速器启动某个游戏后，自动从雷神的 IndexedDB 中读取该游戏的 ​可执行进程名(`game_process`)​。（注意：部分游戏（如《**战地6**》）在雷神数据库中 `game_process` 为空，将无法被监控。）
@@ -32,9 +36,7 @@
   * 不修改雷神官方代码，仅作为“外挂式”增强模块加载。
 
 ### 使用说明
-程序启动后弹出相应提示。
 
-![image](https://github.com/assortest/Leigod_Auto_Pause/blob/main/image/%E5%90%AF%E5%8A%A8%E6%8F%90%E9%86%92.png)
 
 1. **自行打包替换（推荐给开发者）**
    
@@ -46,6 +48,6 @@
    - 我会不定期在 （[Releases](https://github.com/assortest/Leigod_Auto_Pause)) 发布适配不同雷神版本的 `app.asar`。
    - **版本号对应雷神加速器的官方版本号**（如 `11.0.0.0`）。
     
-   - 下载后替换雷神目录下面的resources文件夹即可使用。
+   -**下载后替换雷神目录下面的resources文件夹即可使用。**
 
 
