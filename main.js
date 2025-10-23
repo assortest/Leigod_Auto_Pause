@@ -87,7 +87,7 @@ try {
            //const filters = this.targetProcesses.map(p=>`/FI "IMAGENAME eq ${p}"`).join(' '); //将进程名转换为winwos命令
            const target =this.targetProcesses[0];
 
-           const command =`tasklist /FI "IMAGENAME eq ${target}`;
+           const command =`tasklist /FI "IMAGENAME eq ${target}"`;
            exec(command, (error, stdout, stderr) => { 
                 //转换小写
                 if(error)
@@ -311,4 +311,5 @@ function showStartupNotification() {
   dialog.showErrorBox('leigod-appmain.js', e + '' + e.stack);
   process.exit(1);
 }
+
 
