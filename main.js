@@ -138,7 +138,7 @@ try {
             
            }, 600000);//十分钟自动运行
 
-           2.//设置轮询检查游戏是否重新启动 启动的话就
+           //设置轮询检查游戏是否重新启动 启动的话就
            this.graceCheckIntervalId=setInterval(()=>{//每5秒检查一次如果启动了就吧宽恕期的定时器处理掉然后重新加入活动模式
             this._checkProcessExists().then(isProcessRunning=>{
                 if(isProcessRunning)
@@ -311,3 +311,4 @@ function showStartupNotification() {
   dialog.showErrorBox('leigod-appmain.js', e + '' + e.stack);
   process.exit(1);
 }
+
