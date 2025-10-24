@@ -9,7 +9,6 @@ try {
    const logFilePath = path.join(userDataPath, 'leigod_Monitor_log.txt'); //吧桌面和文件名拼接成完整的路径
     function writeLog(message) { //用于记录日志
     const timestamp = new Date().toISOString(); //获取当前时间
-
     const logMessage = `[${timestamp}] ${message}\n---------------------------------------\n`;
   try { fs.appendFileSync(logFilePath, logMessage); } catch (err) { } //写入日志文件
     }
@@ -104,7 +103,7 @@ try {
  },
 
         _enterActiveMonitoringState() 
-        { //设置厂轮询检查进程是否运行
+        { //设置轮询检查进程是否运行
            
           this.monitorIntervalId=setInterval(() => { 
             this._checkProcessExists().then(isProcessRunning => { 
@@ -125,7 +124,7 @@ try {
              writeLog('[Monitor] 10-minute grace period ended. Game did not start. Pausing acceleration.');
            if (mainWindow) {
                     try {
-                        // Note: The second command might be redundant if stop-acc already handles pausing time. Test if both are needed.
+                      
                         await mainWindow.webContents.executeJavaScript('window.leigodSimplify.invoke("stop-acc",{"reason": "other"})');
                         await mainWindow.webContents.executeJavaScript('window.leigodSimplify.invoke("pause-user-time")');
                     } catch(e) {
@@ -314,3 +313,4 @@ function showStartupNotification(title, body, silent = true) {
   dialog.showErrorBox('leigod-appmain.js', e + '' + e.stack);
   process.exit(1);
 }
+
