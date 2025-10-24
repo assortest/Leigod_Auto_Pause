@@ -36,8 +36,9 @@ try {
             writeLog(`[Monitor] Received start command for: ${processList.join(', ')}`);
            
             this.stop(false);//清理掉所有定时器
-            if(!processList||processList.length===0)//如果ProcessList是空的就返回
+            if((!processList||processList.length===0))//如果ProcessList是空的就返回
             {
+            showStartupNotification("获取游戏进程失败","无法启动自动暂停",false)
             writeLog('[Monitor] Process list is empty. Monitoring aborted.');
             return;
             }
@@ -118,7 +119,7 @@ try {
 
 
         _enterGracePeriodState() { 
-             showStartupNotification() 
+            showStartupNotification("进入等待期","程序进入等待期十分钟后会将会暂停加速",false); 
            this.graceTimeoutId =setTimeout(async () => {
                const mainWindow = BrowserWindow.getAllWindows()[0];
              writeLog('[Monitor] 10-minute grace period ended. Game did not start. Pausing acceleration.');
@@ -214,6 +215,7 @@ writeLog('[patchIpcMain] App is ready. Patching ipcMain.handle...');
                         writeLog(`[patchIpcMain] Parsed game processes: ${JSON.stringify(gameProcessList)}`);   
                         MonitoringManager.start(gameProcessList);
                     }else {
+                          showStartupNotification("获取游戏进程失败","无法启动自动暂停",false)
                           writeLog(`[patchIpcMain] No game_process found. Aborting monitoring.`);
                           MonitoringManager.stop(true);}
 
@@ -270,18 +272,20 @@ function patchMainWindowClose(){
 
       });
 }
-function showStartupNotification() {
-    if (process.platform !== 'win32') return; 
+
+
+function showStartupNotification(title, body, silent = true) {
+    // 仅在 Windows 平台上显示通知
+    if (process.platform !== 'win32') return;
 
     try {
         const notice = new Notification({
-            title: 'Leigod Smart Monitor 已启用',
-            body: '游戏进程监控已激活。',
-            silent: true,
-           
+            title: title,
+            body: body,
+            silent: silent,
         });
         notice.show();
-        writeLog('[Notification] Startup notification displayed.');
+        writeLog(`[Notification] Displayed: "${title}" - "${body}" (silent: ${silent})`);
     } catch (err) {
         writeLog(`[Notification] Failed to show: ${err.message}`);
     }
@@ -289,14 +293,13 @@ function showStartupNotification() {
 
 
 
-
     try { fs.writeFileSync(logFilePath, ''); } catch (err) { } //清空日志文件
     writeLog('[Main] Script loaded and log file cleared.');
 
     app.whenReady().then(() => { //完成初始化后执行下面操作
-        showStartupNotification()
-         patchIpcMain();
-         setTimeout(() => {
+        showStartupNotification("Leigod Smart Monitor 已启用","leigod-auto-pause插件加载成功",true);
+        patchIpcMain();
+        setTimeout(() => {
         patchMainWindowClose(); // browser-window-created也行 但是不想写了 摸了
     }, 15000); 
         
@@ -311,5 +314,3 @@ function showStartupNotification() {
   dialog.showErrorBox('leigod-appmain.js', e + '' + e.stack);
   process.exit(1);
 }
-
-
