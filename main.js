@@ -89,20 +89,37 @@ try {
                     return;
                 }
 
-                //const filters = this.targetProcesses.map(p=>`/FI "IMAGENAME eq ${p}"`).join(' '); //将进程名转换为winwos命令
-                const target = this.targetProcesses[0];
+                const checkProcess = (target) => {//该方法用于调用系统命令 将结果返回
+                    if (!target) return Promise.resolve(false);
 
-                const command = `tasklist /FI "IMAGENAME eq ${target}"`;
-                exec(command, (error, stdout, stderr) => {
-                    //转换小写
-                    if (error) {
-                        resolve(false);
-                        return;
+                    return new Promise((pResolve) => { 
+                        const command = `tasklist /FI "IMAGENAME eq ${target.trim()}"`;
+                        exec(command, (error, stdout, stderr) => {
+                            if (error) {
+                                pResolve(false);
+                                return;
+                            }
+                            const lines = stdout.trim().split('\n'); //处理空格和回车符
+                            pResolve(lines.length > 2); //判断进程是否存在
+                        });
+
+                    });
+
+                };
+                Promise.all(this.targetProcesses.map(checkProcess))
+                .then(results => { //该方法将得到的结果检查如果所有进程都在就返回true
+                    const anyRunning = results.includes(true); //检查进程如果有进程运行就返回true
+                    if (anyRunning) {
+                        writeLog(`[Monitor] Found at least one running process. Results: ${JSON.stringify(results)}`);
+                    } else {
+                        writeLog(`[Monitor] No target processes found running. Results: ${JSON.stringify(results)}`);
                     }
-                    const isRunning = stdout.toLowerCase().includes(target.toLowerCase());
-                    resolve(isRunning);
-
+                      resolve(anyRunning);
+                }).catch    (error => {
+                    writeLog(`[Monitor] Error occurred during process check: ${error}`);
+                    resolve(false);
                 });
+  
             });
         },
 
@@ -128,7 +145,7 @@ try {
                 writeLog('[Monitor] 10-minute grace period ended. Game did not start. Pausing acceleration.');
                 if (mainWindow) {
                     try {
-
+                        showStartupNotification("等待期已过", "正在暂停加速器", false);
                         await mainWindow.webContents.executeJavaScript('window.leigodSimplify.invoke("stop-acc",{"reason": "other"})');
                         await mainWindow.webContents.executeJavaScript('window.leigodSimplify.invoke("pause-user-time")');
                     } catch (e) {
@@ -213,7 +230,7 @@ try {
                                     writeLog(`[patchIpcMain] Parsed game processes: ${JSON.stringify(gameProcessList)}`);
                                     MonitoringManager.start(gameProcessList);
                                 } else {
-                                    showStartupNotification("获取游戏进程失败", "无法启动自动暂停", false)
+                                    showStartupNotification("获取游戏进程失败", "获取游戏进程失败目标字段中无法获取游戏将无法启动自动暂停功能。", false)
                                     writeLog(`[patchIpcMain] No game_process found. Aborting monitoring.`);
                                     MonitoringManager.stop(true);
                                 }
