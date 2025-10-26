@@ -230,7 +230,7 @@ try {
                                     writeLog(`[patchIpcMain] Parsed game processes: ${JSON.stringify(gameProcessList)}`);
                                     MonitoringManager.start(gameProcessList);
                                 } else {
-                                    showStartupNotification("获取游戏进程失败", "获取游戏进程失败目标字段中无法获取游戏将无法启动自动暂停功能。", false)
+                                    showStartupNotification("获取游戏进程失败", "目标game_process字段中无法获取游戏名称，将无法启动自动暂停功能。", false)
                                     writeLog(`[patchIpcMain] No game_process found. Aborting monitoring.`);
                                     MonitoringManager.stop(true);
                                 }
@@ -311,7 +311,7 @@ try {
     writeLog('[Main] Script loaded and log file cleared.');
 
     app.whenReady().then(() => { //完成初始化后执行下面操作
-        showStartupNotification("Leigod Smart Monitor 已启用", "leigod-auto-pause插件加载成功", true);
+        showStartupNotification("Leigod Smart Monitor 已启用", "leigod-auto-pause插件加载成功", false);
         patchIpcMain();
         setTimeout(() => {
             patchMainWindowClose(); // browser-window-created也行 但是不想写了 摸了
