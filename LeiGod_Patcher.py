@@ -6,15 +6,10 @@ import sys
 import ctypes
 from pathlib import Path
 
-def get_base_path():
-    """获取资源的基准路径，兼容开发环境和 PyInstaller 打包后的环境"""
+def get_base_path(): 
     if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
-        # 如果程序是被 PyInstaller 打包成了 exe
-        # sys.executable 会返回 exe 文件的绝对路径
         return Path(sys.executable).parent
     else:
-        # 如果是直接运行 .py 脚本
-        # __file__ 会返回 .py 文件的路径
         return Path(__file__).parent
 
 # --- 配置区 ---
@@ -36,11 +31,18 @@ def main() -> None:
     if not os.path.exists(asar_path):
         print("错误: 找不到 app.asar 文件！请检查本程序是否被防止在雷神加速器的根目录下！")
         return
+    
 
-    # 1. 备份 (这是一个好习惯)
+    # 1. 备份 
     backup_path = asar_path.with_suffix(asar_path.suffix + ".bak") #备份bak
-    print(f"正在备份原始文件到: {backup_path}")
-    shutil.copy2(asar_path, backup_path)
+    
+    if backup_path.exists():
+        print(f"已存在备份文件: {backup_path}")
+        print("跳过备份步骤，以免覆盖现有备份！")
+    else:
+        print(f"正在备份原始文件到: {backup_path}")
+        shutil.copy2(asar_path, backup_path)
+        print("备份完成！")
 
     # 2. 解压
     
@@ -67,7 +69,7 @@ def main() -> None:
         shutil.rmtree(temp_dir) # 清理
         return
 
-    # 4. 重新打包 (最关键的一步)
+    # 4. 重新打包 
     print("正在重新打包文件...")
     asar.create_archive(temp_dir, asar_path)
     
