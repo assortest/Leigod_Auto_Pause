@@ -1,6 +1,19 @@
 try {
     "use strict";
-    /*Can youhear forever,my heart beat？*/
+    /*Can you hear forever, my heart beat
+    君に届くようにと描いたのは
+    Don’t you know everlasting stories
+    見上げた瞳に映る三日月
+    Can you hear forever, my heart beat
+    もっと信じ合えたら共に行こう
+    Don’t you know everlasting stories
+    果てなく広がる空の彼方へ*/
+
+    //社区维护的游戏进程名
+    const CommunityGameDB =
+    {
+        1559 :"VALORANT-Win64-Shipping.exe"
+    }
 
     //全局配置区域
     const { app, ipcMain, BrowserWindow, Notification } = require('electron'); // 结构引入 Electron 使用的模块
@@ -8,7 +21,7 @@ try {
     const path = require('path'); //用于处理路径
     const fs = require('fs'); //用于文件操作
     const userDataPath = app.getPath('userData');
-    const logFilePath = path.join(userDataPath, 'leigod_Monitor_log.txt'); //吧桌面和文件名拼接成完整的路径
+    const logFilePath = path.join(userDataPath, 'leigod_Monitor_log.txt'); //和文件名拼接成完整的路径
    
     //辅助函数区域用于解析字符串
     function writeLog(message) { //用于记录日志
@@ -159,7 +172,7 @@ try {
 
             }, 600000);//十分钟自动运行
 
-            //设置轮询检查游戏是否重新启动 启动的话就
+            //设置轮询检查游戏是否重新启动 启动的话就进入_enterActiveMonitoringState
             this.graceCheckIntervalId = setInterval(() => {//每5秒检查一次如果启动了就吧宽恕期的定时器处理掉然后重新加入活动模式
                 this._checkProcessExists().then(isProcessRunning => {
                     if (isProcessRunning) {
@@ -222,22 +235,34 @@ try {
                         })(${gameInfoArg.game_id});return game;
                         })()
                        ;`;
+
+
                                 const GameInfo = await mainWindow.webContents.executeJavaScript(QueryScript);
                                 writeLog(`[patchIpcMain] query returned:\n${JSON.stringify(GameInfo, null, 2)}`);
-
-                                if (GameInfo && GameInfo.game_process) {
-                                    const gameProcessList = parseGameProcess(GameInfo.game_process);
-                                    writeLog(`[patchIpcMain] Parsed game processes: ${JSON.stringify(gameProcessList)}`);
-                                    MonitoringManager.start(gameProcessList);
-                                } else {
-                                    showStartupNotification("获取游戏进程失败", "目标game_process字段中无法获取游戏名称，将无法启动自动暂停功能。", false)
-                                    writeLog(`[patchIpcMain] No game_process found. Aborting monitoring.`);
-                                    MonitoringManager.stop(true);
+                                if (GameInfo && GameInfo !== '')  //如果GameInfo 不为空
+                                {
+                                    let gameProcessList = [];
+                                    if (GameInfo.game_process && GameInfo.game_process !== '') //先进入雷神数据库获取游戏进程
+                                    {
+                                        gameProcessList = parseGameProcess(GameInfo.game_process);
+                                        writeLog(`[patchIpcMain] Parsed game processes: ${JSON.stringify(gameProcessList)}`);
+                                        MonitoringManager.start(gameProcessList);
+                                    } else if(CommunityGameDB[String(GameInfo.id)])
+                                    {//如果社区游戏数据库中有此游戏
+                                        gameProcessList = [CommunityGameDB[String(GameInfo.id)]] 
+                                        writeLog(`[patchIpcMain] Parsed CommunityGameDB processes: ${JSON.stringify(gameProcessList)}`);
+                                        MonitoringManager.start(gameProcessList);
+                                    }else
+                                    {
+                                        showStartupNotification("获取游戏进程失败", "目标game_process字段中无法获取游戏名称,将无法启动自动暂停功能。", false)
+                                        writeLog(`[patchIpcMain] No game_process found. Aborting monitoring.`);
+                                        MonitoringManager.stop(true);
+                                    }
                                 }
-
                             } catch (e) {
                                 writeLog(`[patchIpcMain] ERROR: Failed to call "get-game-info".\nError: ${e}`);
                             }
+
                         }
                     } else {
                         writeLog(`[patchIpcMain] Acceleration did not start successfully. Aborting.`);
