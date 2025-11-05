@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "AsarSharp": {
+      "commandName": "Project"
+    },
+    "AsarSharpTest": {
+      "commandName": "Executable"
+    }
+  }
+}

@@ -1,0 +1,156 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>AsarSharp</name>
+    </assembly>
+    <members>
+        <member name="T:AsarSharp.AsarArchiver">
+            <summary>
+            Hosts all the needed methods, properties and fields for extracting an archive.
+            </summary>
+        </member>
+        <member name="M:AsarSharp.AsarArchiver.#ctor(System.String,System.String)">
+            <param name="directoryPath">Path of the directory that is to be archived.</param>
+            <param name="archivePath">Path to where the archive will be created.</param>
+            <exception cref="T:System.IO.DirectoryNotFoundException">
+            Is thrown when the given path to the directory that holds the data to form the archive, doesn't exist.
+            </exception>
+            <exception cref="T:System.FormatException">
+            Is thrown when the given path to the archive is not going to be an .asar file.
+            </exception>
+            
+        </member>
+        <member name="M:AsarSharp.AsarArchiver.Archive(AsarSharp.Utils.Types.ArchivingOptions)">
+            <summary>
+            Packs the given directory from the constructor into an .asar file. 
+            </summary>
+            <param name="archivingOptions">
+            A list of options that describe some rules for the archiving process.
+            </param>
+        </member>
+        <member name="M:AsarSharp.AsarArchiver.CreateArchiveDataTempFile">
+            <summary>
+            Creates a new temporary file used for holding the data of every file inside the directory. 
+            Precisely, it stores the bytes of file 1, then right after, the bytes of file 2 and so on.
+            </summary>
+            <returns>The FileStream of the temporary file.</returns>
+        </member>
+        <member name="M:AsarSharp.AsarArchiver.MakeJsonDirStructureAndWriteToTempFile(System.String,System.Collections.Generic.Dictionary{System.String,System.Object}@,System.Boolean)">
+            <summary>
+            Recursively creates, in memory, the structure of the files and directories from the main 
+            directory. The structure created follows the same format as the one from asar's docs.
+            </summary>
+            <param name="currentFilePath">The path of the file that is to be added to the archive.</param>
+            <param name="currentBranch">
+            The branch of the directory structure that needs to be populated. It can represent the "files"
+            property, or the file names with their size and offset. 
+            </param>
+            <param name="isFirstDirectory">
+            Is used to treat the edge case of the main directory. The format of the JSON simply starts with
+            the files property, at the root, and doesn't include the name of the main directory. This 
+            parameter, for now, may not be set to anything, when calling the method. Otherwise, the outputted
+            structure will not be correct.
+            </param>
+        </member>
+        <member name="M:AsarSharp.AsarArchiver.WriteArchiveHeader">
+            <summary>Writes the header size and the JSON directory structure to the archive.</summary>
+        </member>
+        <member name="M:AsarSharp.AsarArchiver.WriteArchiveContents">
+            <summary>
+            Concatenates to the archive file the bytes of the files inside the directory that is
+            to be archived.
+            </summary>
+        </member>
+        <member name="M:AsarSharp.AsarArchiver.AddNewFileToBranch(System.Collections.Generic.Dictionary{System.String,System.Object}@,System.String)">
+            <summary>Creates the current file's "size", "offset", and "executable" properties, and computes them.</summary> 
+            <param name="currentBranch">The point inside the directory structure where the current file is located.</param>
+            <param name="currentFilePath">The path of the file whose size and offset are to be computed.</param>
+        </member>
+        <member name="M:AsarSharp.AsarArchiver.AddFileToUnpackedDirectory(System.String)">
+            <summary>
+            Adds the files excluded by the globs from the archiving options to the {archiveName.asar.unpacked} directory.
+            </summary>
+        </member>
+        <member name="F:AsarSharp.AsarArchiver._isDisposed">
+            <summary>Disposes the resources associated with this archiver.</summary>
+        </member>
+        <member name="M:AsarSharp.AsarArchiver.Finalize">
+            <summary> Finalizer invokes Dispose.</summary>
+        </member>
+        <member name="T:AsarSharp.AsarExtractor">
+            <summary>
+            Hosts all the needed methods, properties and fields for extracting an archive.
+            </summary>
+        </member>
+        <member name="M:AsarSharp.AsarExtractor.#ctor(System.String,System.String)">
+            <param name="archiveFilePath">The ABSOLUTE path of the .asar archive.</param>
+            <param name="extractInto">
+            The ABSOLUTE directory path in which all the files will be extracted. If a directory
+            doesn't exist at this path, a new one is created.
+            </param>
+        </member>
+        <member name="M:AsarSharp.AsarExtractor.Extract">
+            <summary>
+            Extracts the given archive from the constructor to the given directory from the constructor. 
+            </summary>
+        </member>
+        <member name="M:AsarSharp.AsarExtractor.PrepareArchiveData">
+            <summary>
+            Deserializes the JSON directory structure read from the header.
+            </summary>
+            
+        </member>
+        <member name="M:AsarSharp.AsarExtractor.UnpackArchive(System.Object@,System.String)">
+            <summary>
+            Recursively follows the JSON directory structure from the header of the asar archive, and 
+            creates the files and subdirectories that are within the archive.
+            </summary>
+            <param name="currentBranch"> The position in the JSON directory structure, which holds data about 
+            the following subdirectories or files that need to be extracted.</param>
+            <param name="currentPath"> The path for each subdirectory and file within the directory
+            that holds the extracted files.</param>
+            <exception cref="T:System.FormatException">The current file offset could not be converted from string to uint.</exception>
+        </member>
+        <member name="M:AsarSharp.AsarExtractor.HandleSymlinks">
+            <summary>
+            Symlinks require elevated privileges in order to be created. It's not suitable for this library
+            to ask for such privileges in order to execute its code. So, we replace every symlink with the 
+            file or directory they point to.
+            </summary>
+        </member>
+        <member name="M:AsarSharp.AsarExtractor.CreateFileFromArchive(System.Object@,System.String)">
+            <summary>Creates a file that the archive contains.</summary>
+            <param name="currentBranch"> The position in the JSON directory structure, which holds data about 
+            the following subdirectories or files that need to be extracted.</param>
+            <param name="currentPath"> The path for each subdirectory and file within the directory
+            that holds the extracted files.</param>
+        </member>
+        <member name="M:AsarSharp.AsarExtractor.GetArchiveHeaderData">
+            <summary> 
+            Reads the archive's header size, and the JSON string representing the directory structure, using
+            the Pickle class. 
+            </summary>
+            <returns>
+            A tuple representing the JSON string for the directory structure, and the header size.
+            </returns>
+            <exception cref="T:System.IO.InvalidDataException">When the header is improper.</exception>
+        </member>
+        <member name="F:AsarSharp.AsarExtractor._isDisposed">
+            <summary>Disposes the resources associated with this extractor.</summary>
+        </member>
+        <member name="M:AsarSharp.AsarExtractor.Finalize">
+            <summary>Finalizer invokes Dispose.</summary>
+        </member>
+        <member name="M:AsarSharp.Utils.Methods.IsFileExecutable(System.String)">
+            <summary>Checks to see if given file is an executable.</summary>
+            <param name="pathToFile">The path to the file.</param>
+            <returns>True if the file is an executable, and false otherwise.</returns>
+        </member>
+        <member name="P:AsarSharp.Utils.Types.ArchivingOptions.MatchBasename">
+            <summary>Match against the file name of the path.</summary>
+        </member>
+        <member name="P:AsarSharp.Utils.Types.ArchivingOptions.Unpack">
+            <summary>List of globs for file names to exclude from packing.</summary>
+        </member>
+    </members>
+</doc>
