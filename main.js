@@ -12,7 +12,10 @@ try {
     //社区维护的游戏进程名
     const CommunityGameDB =
     {
-        1559 :"VALORANT-Win64-Shipping.exe"
+        1559: "VALORANT-Win64-Shipping.exe",
+        2167: "Warframe.x64.exe",
+        258 : "Warframe.x64.exe"
+
     }
 
     //全局配置区域
@@ -210,7 +213,8 @@ try {
                         return result;
                     }
                     // 在原始加速逻辑成功后
-                    if (result && result.result.code === 200) {
+                    if (result && result.result.code === 200) 
+                    {
                         writeLog('[patchIpcMain] Acceleration seems successful. Now fetching game info...');
                         const mainWindow = BrowserWindow.getAllWindows()[0];
 
