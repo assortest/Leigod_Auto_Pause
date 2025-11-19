@@ -19,12 +19,15 @@ try {
     }
 
     //全局配置区域
+    let GLOBAL_USER_TOKEN = "";
     const { app, ipcMain, BrowserWindow, Notification } = require('electron'); // 结构引入 Electron 使用的模块
-    const { exec } = require('child_process');
+    const { exec,spawn } = require('child_process');
     const path = require('path'); //用于处理路径
     const fs = require('fs'); //用于文件操作
+    const https = require('https');
     const userDataPath = app.getPath('userData');
     const logFilePath = path.join(userDataPath, 'leigod_Monitor_log.txt'); //和文件名拼接成完整的路径
+
    
     //辅助函数区域用于解析字符串
     function writeLog(message) { //用于记录日志
@@ -123,7 +126,7 @@ try {
 
                 };
                 Promise.all(this.targetProcesses.map(checkProcess))
-                .then(results => { //该方法将得到的结果检查如果所有进程都在就返回true
+                .then(results => { //该方法将得到的结果检查如果有进程在就返回true
                     const anyRunning = results.includes(true); //检查进程如果有进程运行就返回true
                     if (anyRunning) {
                         writeLog(`[Monitor] Found at least one running process. Results: ${JSON.stringify(results)}`);
@@ -201,6 +204,34 @@ try {
         const originalIpcMainHandle = ipcMain.handle; //保存原始的 ipcMain.handle 方法
 
         ipcMain.handle = (channel, listener) => {
+
+            // --- 拦截 leigod-simplify-login ---
+            if(channel === 'leigod-simplify-login')
+            {
+                const newListener = async(event, ...args) =>
+                {//建立一个新的函数
+                    const result = await listener(event, ...args);//执行原始函数得到参数                     
+                    try
+                    { 
+                        if(result && result.result && result.result.account_token)
+                        {//拿到token
+                            GLOBAL_USER_TOKEN=result.result.account_token; 
+                             writeLog(`[Token] Successfully obtained token. The token is ${GLOBAL_USER_TOKEN.substring(0, 10)}...`);
+                        }else
+                        {
+                            writeLog(`[Token] Failed to obtain token : \n${JSON.stringify(result, null, 2)}.`);
+                        }
+                    }
+                    catch(e)
+                    {
+                    writeLog(`[Token] ERROR: Failed to extract token. Error: ${e}`);                   
+                    }
+                    return result;
+                };
+                return originalIpcMainHandle.call(ipcMain,channel, newListener);
+            }
+
+
             // --- 拦截 start-acc ---
             if (channel === 'leigod-simplify-start-acc') {
                 const newListener = async (event, ...args) => {
@@ -246,17 +277,18 @@ try {
                                 if (GameInfo && GameInfo !== '')  //如果GameInfo 不为空
                                 {
                                     let gameProcessList = [];
-                                    if (GameInfo.game_process && GameInfo.game_process !== '') //先进入雷神数据库获取游戏进程
-                                    {
-                                        gameProcessList = parseGameProcess(GameInfo.game_process);
-                                        writeLog(`[patchIpcMain] Parsed game processes: ${JSON.stringify(gameProcessList)}`);
-                                        MonitoringManager.start(gameProcessList);
-                                    } else if(CommunityGameDB[String(GameInfo.id)])
+                                    if(CommunityGameDB[String(GameInfo.id)])
                                     {//如果社区游戏数据库中有此游戏
                                         gameProcessList = [CommunityGameDB[String(GameInfo.id)]] 
                                         writeLog(`[patchIpcMain] Parsed CommunityGameDB processes: ${JSON.stringify(gameProcessList)}`);
                                         MonitoringManager.start(gameProcessList);
-                                    }else
+                                    }
+                                    else if (GameInfo.game_process && GameInfo.game_process !== '') //进入雷神数据库获取游戏进程
+                                    {
+                                        gameProcessList = parseGameProcess(GameInfo.game_process);
+                                        writeLog(`[patchIpcMain] Parsed game processes: ${JSON.stringify(gameProcessList)}`);
+                                        MonitoringManager.start(gameProcessList);
+                                    }  else
                                     {
                                         showStartupNotification("获取游戏进程失败", "目标game_process字段中无法获取游戏名称,将无法启动自动暂停功能。", false)
                                         writeLog(`[patchIpcMain] No game_process found. Aborting monitoring.`);
@@ -297,6 +329,59 @@ try {
             return;
         }
 
+            //监听session-end 用于在关机时暂停加速器
+        mainWindow.on('session-end', (event) => {
+            writeLog('[Shutdown] session-end TRIGGERED! Windows is asking to shutdown.');
+            event.preventDefault(); //阻止关机，虽然并没有什么卵用
+            writeLog('[Shutdown] Triggered. Launching CURL Missile...');
+      
+            if(!GLOBAL_USER_TOKEN)
+            {//检查有没有用户令牌 
+                writeLog('[Shutdown] No user token found.');
+                app.exit(0);
+                return;
+            }
+            const API_URL = "https://webapi.leigod.com/api/user/pause";
+            // {"account_token": "xxx", "lang": "zh_CN"}.
+            //设置请求体
+            const jsonBody = JSON.stringify({
+                account_token: GLOBAL_USER_TOKEN,
+                lang: 'zh_CN'
+            });
+
+            try {
+                //构造curl命令
+                const child = spawn('curl', [
+                    '-X', 'POST',
+                    API_URL,
+                    '-H', 'Content-Type: application/json',
+                    '-H', 'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36', //模拟成浏览器
+                    '-d', jsonBody, // 数据体
+                    '-m', '3', 
+                    '-s' 
+                ], {
+                    detached: true,   //运行在后台 
+                    stdio: 'ignore',  // 忽略输出 
+                    windowsHide: true  //忽略Windows控制台
+                });
+                writeLog('[Shutdown] CURL Launched with JSON Payload.');
+    
+                child.unref(); //让父进程可以立即退出，不等待curl请求完成
+                const start = Date.now();
+                while (Date.now() - start < 1500) { } //空转1.5秒来等待拉起curl防止进程结束没发包
+
+                writeLog('[Shutdown] CURL launched. Electron exiting.');
+            } catch (e) {
+                writeLog(`[Shutdown] Spawn Error: ${e.message}`);
+
+            }
+            //晚安，世界。
+            writeLog('[Shutdown] Good night, world.');
+            app.exit(0);
+        })
+
+            
+ 
         mainWindow.on('close', async (event) => {
             //监听窗口关闭事件
             event.preventDefault();//preventDefault
