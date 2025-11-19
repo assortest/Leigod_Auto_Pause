@@ -283,7 +283,7 @@ try {
                                         writeLog(`[patchIpcMain] Parsed CommunityGameDB processes: ${JSON.stringify(gameProcessList)}`);
                                         MonitoringManager.start(gameProcessList);
                                     }
-                                    else if (GameInfo.game_process && GameInfo.game_process !== '') //进入雷神数据库获取游戏进程
+                                    else if (GameInfo.game_process && GameInfo.game_process !== '') //先进入雷神数据库获取游戏进程
                                     {
                                         gameProcessList = parseGameProcess(GameInfo.game_process);
                                         writeLog(`[patchIpcMain] Parsed game processes: ${JSON.stringify(gameProcessList)}`);
@@ -381,13 +381,11 @@ try {
         })
 
             
- 
         mainWindow.on('close', async (event) => {
             //监听窗口关闭事件
             event.preventDefault();//preventDefault
             writeLog('[Close Intercept] Window close event triggered. Preventing immediate close.');
             try {
-
                 writeLog('[Close Intercept] Attempting to execute "pause-user-time" command...');
                 await mainWindow.webContents.executeJavaScript('window.leigodSimplify.invoke("pause-user-time")');
 
@@ -396,7 +394,7 @@ try {
                 writeLog('[Close Intercept] Caught expected exception after command execution. Ignoring.');
             } finally {//无论否成功，都强制退出程序
                 writeLog('[Close Intercept] All tasks finished. Forcing application quit.');
-                app.quit();
+                app.exit(0);
             }
 
 
