@@ -14,6 +14,7 @@ try {
     1559: "VALORANT-Win64-Shipping.exe",
     2167: "Warframe.x64.exe",
     258: "Warframe.x64.exe",
+    137: "vermintide2_dx12.exe,vermintide2.exe"
   };
 
   //全局配置区域
@@ -327,14 +328,14 @@ try {
                   if (CommunityGameDB[String(GameInfo.id)]) {
                     //先检查社区游戏数据库，防止雷神数据库中的进程名有假
                     //如果社区游戏数据库中有此游戏
-                    gameProcessList = [CommunityGameDB[String(GameInfo.id)]];
+                     gameProcessList = parseGameProcess(CommunityGameDB[String(GameInfo.id)]);
                     writeLog(
                       `[patchIpcMain] Parsed CommunityGameDB processes: ${JSON.stringify(
                         gameProcessList
                       )}`
                     );
                     MonitoringManager.start(gameProcessList);
-                  } else if (
+                  } else if ( 
                     GameInfo.game_process &&
                     GameInfo.game_process !== ""
                   ) {
