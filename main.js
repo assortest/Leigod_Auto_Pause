@@ -14,8 +14,10 @@ try {
     1559: "VALORANT-Win64-Shipping.exe",
     2167: "Warframe.x64.exe",
     258: "Warframe.x64.exe",
-    137: "vermintide2_dx12.exe,vermintide2.exe"
+    137: "vermintide2_dx12.exe,vermintide2.exe",
   };
+  //steam epic 暴雪 育碧uplay eaapp  rockstar GOG
+  const ExcludedGameIDs = [109, 437, 1544, 274, 1921, 1342, 860];
 
   //全局配置区域
   let GLOBAL_USER_TOKEN = "";
@@ -325,17 +327,29 @@ try {
                 if (GameInfo && GameInfo !== "") {
                   //如果GameInfo 不为空
                   let gameProcessList = [];
+                  if (ExcludedGameIDs.includes(GameInfo.id)) {
+                     showStartupNotification( "自动暂停已跳过",
+                      "检测到当前加速项属于平台或排除项，自动暂停功能已跳过，请务必留意加速时长。",
+                      false)
+                    writeLog(   
+                      `[patchIpcMain] Game ID ${GameInfo.id} is in the exclusion list. ignored.`
+                    );
+                    return result;
+                  }
+
                   if (CommunityGameDB[String(GameInfo.id)]) {
                     //先检查社区游戏数据库，防止雷神数据库中的进程名有假
                     //如果社区游戏数据库中有此游戏
-                     gameProcessList = parseGameProcess(CommunityGameDB[String(GameInfo.id)]);
+                    gameProcessList = parseGameProcess(
+                      CommunityGameDB[String(GameInfo.id)]
+                    );
                     writeLog(
                       `[patchIpcMain] Parsed CommunityGameDB processes: ${JSON.stringify(
                         gameProcessList
                       )}`
                     );
                     MonitoringManager.start(gameProcessList);
-                  } else if ( 
+                  } else if (
                     GameInfo.game_process &&
                     GameInfo.game_process !== ""
                   ) {
