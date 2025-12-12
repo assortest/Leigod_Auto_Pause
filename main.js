@@ -221,199 +221,222 @@ try {
     },
   };
 
-  // 拦截 IPC 通信，注入监控逻辑
-  function patchIpcMain() {
-    writeLog("[patchIpcMain] App is ready. Patching ipcMain.handle...");
+  // 拦截 IPC 通信相关的辅助函数
 
-    const originalIpcMainHandle = ipcMain.handle; //保存原始的 ipcMain.handle 方法
-
-    ipcMain.handle = (channel, listener) => {
-      // --- 拦截 leigod-simplify-login ---
-      if (channel === "leigod-simplify-login") {
-        const newListener = async (event, ...args) => {
-          //建立一个新的函数
-          const result = await listener(event, ...args); //执行原始函数得到参数
-          try {
-            if (result && result.result && result.result.account_token) {
-              //拿到token
-              GLOBAL_USER_TOKEN = result.result.account_token;
-              writeLog(
-                `[Token] Successfully obtained token. The token is ${GLOBAL_USER_TOKEN.substring(
-                  0,
-                  10
-                )}...`
-              );
-            } else {
-              writeLog(
-                `[Token] Failed to obtain token : \n${JSON.stringify(
-                  result,
-                  null,
-                  2
-                )}.`
-              );
-            }
-          } catch (e) {
-            writeLog(`[Token] ERROR: Failed to extract token. Error: ${e}`);
-          }
-          return result;
-        };
-        return originalIpcMainHandle.call(ipcMain, channel, newListener);
-      }
-
-      // --- 拦截 start-acc ---
-      if (channel === "leigod-simplify-start-acc") {
-        const newListener = async (event, ...args) => {
-          const gameInfoArg = args[0]; //获取参数
+  // 处理登录拦截，提取用户token
+  function handleLoginInterceptor(originalListener) {
+    return async (event, ...args) => {
+      const result = await originalListener(event, ...args);
+      try {
+        if (result && result.result && result.result.account_token) {
+          GLOBAL_USER_TOKEN = result.result.account_token;
           writeLog(
-            ` "start-acc" intercepted!\nInitial Data:\n${JSON.stringify(
-              gameInfoArg,
-              null,
-              2
-            )}`
+            `[Token] Successfully obtained token. The token is ${GLOBAL_USER_TOKEN.substring(
+              0,
+              10
+            )}...`
           );
-
-          const result = await listener(event, ...args);
+        } else {
           writeLog(
-            ` "result" intercepted!\nInitial Data:\n${JSON.stringify(
+            `[Token] Failed to obtain token : \n${JSON.stringify(
               result,
               null,
               2
-            )}`
+            )}.`
           );
-          if (result && result.error && result.error.message.code === 10007) {
-            return result;
-          }
-          // 在原始加速逻辑成功后
-          if (result && result.result.code === 200) {
-            writeLog(
-              "[patchIpcMain] Acceleration seems successful. Now fetching game info..."
-            );
-            const mainWindow = BrowserWindow.getAllWindows()[0];
+        }
+      } catch (e) {
+        writeLog(`[Token] ERROR: Failed to extract token. Error: ${e}`);
+      }
+      return result;
+    };
+  }
 
-            if (mainWindow && gameInfoArg && gameInfoArg.game_id) {
-              // 检查窗口和参数
-              try {
-                // 获取游戏信息
-                const QueryScript = `
-                         (async () => {
-                         const game = await (async (targetId) => {
-                        const db = await new Promise((r, x) => {
-                         const req = indexedDB.open('leigod_database_11.0.0.0');
-                         req.onsuccess = () => r(req.result);
-                         req.onerror = () => x(req.error);
-                        });
-                        return new Promise((r, x) => {
-                        const q = db.transaction('game_list', 'readonly')
-                        .objectStore('game_list')
-                        .index('id')
-                        .get(targetId);
-                        q.onsuccess = () => r(q.result);
-                        q.onerror = () => x(q.error);
-                        });
-                        })(${gameInfoArg.game_id});return game;
-                        })()
-                       ;`;
+  // 查询游戏信息的脚本生成器
+  function buildGameQueryScript(gameId) {
+    return `
+      (async () => {
+        const game = await (async (targetId) => {
+          const db = await new Promise((r, x) => {
+            const req = indexedDB.open('leigod_database_11.0.0.0');
+            req.onsuccess = () => r(req.result);
+            req.onerror = () => x(req.error);
+          });
+          return new Promise((r, x) => {
+            const q = db.transaction('game_list', 'readonly')
+              .objectStore('game_list')
+              .index('id')
+              .get(targetId);
+            q.onsuccess = () => r(q.result);
+            q.onerror = () => x(q.error);
+          });
+        })(${gameId});
+        return game;
+      })()
+    ;`;
+  }
 
-                const GameInfo = await mainWindow.webContents.executeJavaScript(
-                  QueryScript
-                );
-                writeLog(
-                  `[patchIpcMain] query returned:\n${JSON.stringify(
-                    GameInfo,
-                    null,
-                    2
-                  )}`
-                );
-                if (GameInfo && GameInfo !== "") {
-                  //如果GameInfo 不为空
-                  let gameProcessList = [];
-                  if (ExcludedGameIDs.includes(GameInfo.id)) {
-                     showStartupNotification( "自动暂停已跳过",
-                      "检测到当前加速项属于平台或排除项，自动暂停功能已跳过，请务必留意加速时长。",
-                      false)
-                    writeLog(   
-                      `[patchIpcMain] Game ID ${GameInfo.id} is in the exclusion list. ignored.`
-                    );
-                    return result;
-                  }
+  // 处理游戏进程监控逻辑
+  async function handleGameProcessMonitoring(mainWindow, gameInfoArg) {
+    if (!mainWindow || !gameInfoArg || !gameInfoArg.game_id) {
+      return;
+    }
 
-                  if (CommunityGameDB[String(GameInfo.id)]) {
-                    //先检查社区游戏数据库，防止雷神数据库中的进程名有假
-                    //如果社区游戏数据库中有此游戏
-                    gameProcessList = parseGameProcess(
-                      CommunityGameDB[String(GameInfo.id)]
-                    );
-                    writeLog(
-                      `[patchIpcMain] Parsed CommunityGameDB processes: ${JSON.stringify(
-                        gameProcessList
-                      )}`
-                    );
-                    MonitoringManager.start(gameProcessList);
-                  } else if (
-                    GameInfo.game_process &&
-                    GameInfo.game_process !== ""
-                  ) {
-                    //进入雷神数据库获取游戏进程（我服了，雷神的进程库还有假的进程名，这个和写假注释一样可恶！他猫猫的）
-                    gameProcessList = parseGameProcess(GameInfo.game_process);
-                    writeLog(
-                      `[patchIpcMain] Parsed game processes: ${JSON.stringify(
-                        gameProcessList
-                      )}`
-                    );
-                    MonitoringManager.start(gameProcessList);
-                  } else {
-                    showStartupNotification(
-                      "获取游戏进程失败",
-                      "目标game_process字段中无法获取游戏名称,将无法启动自动暂停功能。",
-                      false
-                    );
-                    writeLog(
-                      `[patchIpcMain] No game_process found. Aborting monitoring.`
-                    );
-                    MonitoringManager.stop(true);
-                  }
-                }
-              } catch (e) {
-                writeLog(
-                  `[patchIpcMain] ERROR: Failed to call "get-game-info".\nError: ${e}`
-                );
-              }
-            }
-          } else {
-            writeLog(
-              `[patchIpcMain] Acceleration did not start successfully. Aborting.`
-            );
-          }
-          return result;
-        };
-        return originalIpcMainHandle.call(ipcMain, channel, newListener);
+    try {
+      const QueryScript = buildGameQueryScript(gameInfoArg.game_id);
+      const GameInfo = await mainWindow.webContents.executeJavaScript(
+        QueryScript
+      );
+
+      writeLog(
+        `[GameMonitoring] Query returned:\n${JSON.stringify(GameInfo, null, 2)}`
+      );
+
+      if (!GameInfo || GameInfo === "") {
+        return;
       }
 
-      // --- 拦截 stop-acc 和 pause-user-time ---
-      if (
-        channel === "leigod-simplify-stop-acc" ||
-        channel === "leigod-simplify-pause-user-time"
-      ) {
-        const newListener = async (event, ...args) => {
-          writeLog(
-            `[patchIpcMain] "${channel}" intercepted. Monitoring would stop here.`
-          );
-          if (channel === "leigod-simplify-pause-user-time") {
-            MonitoringManager.stop(true);
-            writeLog(
-              `[patchIpcMain] "${channel}" intercepted. Stopping Monitor.`
-            );
-          } else {
-            writeLog(
-              `[patchIpcMain] "${channel}" intercepted. Keeping Monitor alive.`
-            );
-          }
-          return listener(event, ...args);
-        };
-        return originalIpcMainHandle.call(ipcMain, channel, newListener);
+      // 检查是否在排除列表中
+      if (ExcludedGameIDs.includes(GameInfo.id)) {
+        showStartupNotification(
+          "自动暂停已跳过",
+          "检测到当前加速项属于平台或排除项，自动暂停功能已跳过，请务必留意加速时长。",
+          false
+        );
+        writeLog(
+          `[GameMonitoring] Game ID ${GameInfo.id} is in the exclusion list. Ignored.`
+        );
+        return;
       }
 
-      return originalIpcMainHandle.call(ipcMain, channel, listener);
+      // 获取游戏进程列表
+      let gameProcessList = [];
+      if (CommunityGameDB[String(GameInfo.id)]) {
+        // 优先使用社区数据库
+        gameProcessList = parseGameProcess(
+          CommunityGameDB[String(GameInfo.id)]
+        );
+        writeLog(
+          `[GameMonitoring] Parsed CommunityGameDB processes: ${JSON.stringify(
+            gameProcessList
+          )}`
+        );
+        MonitoringManager.start(gameProcessList);
+      } else if (GameInfo.game_process && GameInfo.game_process !== "") {
+        // 使用雷神官方数据库
+        gameProcessList = parseGameProcess(GameInfo.game_process);
+        writeLog(
+          `[GameMonitoring] Parsed official game processes: ${JSON.stringify(
+            gameProcessList
+          )}`
+        );
+        MonitoringManager.start(gameProcessList);
+      } else {
+        // 没有找到游戏进程
+        showStartupNotification(
+          "获取游戏进程失败",
+          "目标game_process字段中无法获取游戏名称,将无法启动自动暂停功能。",
+          false
+        );
+        writeLog(
+          `[GameMonitoring] No game_process found. Aborting monitoring.`
+        );
+        MonitoringManager.stop(true);
+      }
+    } catch (e) {
+      writeLog(
+        `[GameMonitoring] ERROR: Failed to query game info.\nError: ${e}`
+      );
+    }
+  }
+
+  // 处理启动加速拦截
+  function handleStartAccInterceptor(originalListener) {
+    return async (event, ...args) => {
+      const gameInfoArg = args[0];
+      writeLog(
+        `[StartAcc] Intercepted!\nInitial Data:\n${JSON.stringify(
+          gameInfoArg,
+          null,
+          2
+        )}`
+      );
+
+      const result = await originalListener(event, ...args);
+      writeLog(`[StartAcc] Result:\n${JSON.stringify(result, null, 2)}`);
+
+      // 检查错误码
+      if (result && result.error && result.error.message.code === 10007) {
+        return result;
+      }
+
+      // 加速成功后启动监控
+      if (result && result.result.code === 200) {
+        writeLog(
+          "[StartAcc] Acceleration successful. Starting game monitoring..."
+        );
+        const mainWindow = BrowserWindow.getAllWindows()[0];
+        await handleGameProcessMonitoring(mainWindow, gameInfoArg);
+      } else {
+        writeLog(
+          `[StartAcc] Acceleration did not start successfully. Aborting.`
+        );
+      }
+
+      return result;
+    };
+  }
+
+  // 处理停止加速和暂停拦截
+  function handleStopAccInterceptor(channel, originalListener) {
+    return async (event, ...args) => {
+      writeLog(`[StopAcc] "${channel}" intercepted.`);
+
+      if (channel === "leigod-simplify-pause-user-time") {
+        MonitoringManager.stop(true);
+        writeLog(`[StopAcc] "${channel}" triggered. Stopping Monitor.`);
+      } else {
+        writeLog(`[StopAcc] "${channel}" triggered. Keeping Monitor alive.`);
+      }
+
+      return originalListener(event, ...args);
+    };
+  }
+
+  // 创建IPC拦截器
+  function createIpcInterceptor(channel, listener, originalHandle) {
+    let newListener;
+
+    switch (channel) {
+      case "leigod-simplify-login":
+        newListener = handleLoginInterceptor(listener);
+        break;
+
+      case "leigod-simplify-start-acc":
+        newListener = handleStartAccInterceptor(listener);
+        break;
+
+      case "leigod-simplify-stop-acc":
+      case "leigod-simplify-pause-user-time":
+        newListener = handleStopAccInterceptor(channel, listener);
+        break;
+
+      default:
+        // 不拦截其他通道，直接使用原始listener
+        return originalHandle.call(ipcMain, channel, listener);
+    }
+
+    return originalHandle.call(ipcMain, channel, newListener);
+  }
+
+  // 主补丁函数：拦截 IPC 通信，注入监控逻辑
+  function patchIpcMain() {
+    writeLog("[patchIpcMain] App is ready. Patching ipcMain.handle...");
+
+    const originalIpcMainHandle = ipcMain.handle;
+
+    ipcMain.handle = (channel, listener) => {
+      return createIpcInterceptor(channel, listener, originalIpcMainHandle);
     };
   }
   function patchMainWindowClose() {
