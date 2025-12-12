@@ -34,19 +34,23 @@ try {
         ACTIVE: {
             color: '#4caf50',
             bg: 'rgba(76, 175, 80, 0.15)',
-            text: '🟢 监控中'
+            text: '🟢 监控中',
+            code: "active"
         },
         //倒计时
         COUNTING: {
             color: '#ff9800',
             bg: 'rgba(255, 152, 0, 0.15)',
-            text: '⏳ 倒计时'
+            text: '⏳ 倒计时',
+            code: "counting"
+
         },
         //空闲
         IDLE: {
             color: '#a4a4a4',
             bg: 'rgba(255,255,255,0.1)',
-            text: '⚙️ 自动监控'
+            text: '⚙️ 自动监控',
+            code: "idle"
         }
     }
 
