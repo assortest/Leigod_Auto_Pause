@@ -10,12 +10,14 @@ try {
       果てなく広がる空の彼方へ*/
 
     //由于是采用注入无奈只能单文件所以只能采用这种方式进行标注
+
     //社区维护的游戏进程名
     const CommunityGameDB = {
-        1559: "VALORANT-Win64-Shipping.exe",
-        2167: "Warframe.x64.exe",
-        258: "Warframe.x64.exe",
-        137: "vermintide2_dx12.exe,vermintide2.exe",
+        1559: "VALORANT-Win64-Shipping.exe",//无畏契约
+        2167: "Warframe.x64.exe",//星际战甲
+        258: "Warframe.x64.exe",//星际战甲
+        137: "vermintide2_dx12.exe,vermintide2.exe",//末世鼠疫2
+        254: "EscapeFromTarkov.exe"//逃离塔科夫
     };
     //steam epic 暴雪 育碧uplay eaapp  rockstar GOG
     const ExcludedGameIDs = [109, 437, 1544, 274, 1921, 1342, 860];
@@ -578,19 +580,15 @@ try {
             writeLog("[Monitor] enter browser-window-created ...");
             window.webContents.on("did-finish-load", () => {
                 writeLog("[Monitor] Injecting UI widget...");
-                const title = window.webContents.getTitle();
-                const url = window.webContents.getURL();
-                writeLog(`[Monitor] Title: ${title}`);
-                writeLog(`[Monitor] URL: ${url}`);
                 const script = `const timer = setInterval(() => {
-  const navControl = document.querySelector(".nav-control");
-  const rechargeBtn = document.querySelector(".recharge-enrty");
-  if (navControl && rechargeBtn) {
-    clearInterval(timer);
-    if (document.getElementById("leigod-monitor-Widget")) return;
-    const div = document.createElement("div");
-    div.id = "leigod-monitor-Widget";
-    div.style.cssText = \`
+                        const navControl = document.querySelector(".nav-control");
+                        const rechargeBtn = document.querySelector(".recharge-enrty");
+                        if (navControl && rechargeBtn) {
+                        clearInterval(timer);
+                        if (document.getElementById("leigod-monitor-Widget")) return;
+                        const div = document.createElement("div");
+                        div.id = "leigod-monitor-Widget";
+                        div.style.cssText = \`
                         height: 24px; 
                         min-width: 90px; 
                         background: rgba(255,255,255,0.1); 
@@ -609,28 +607,27 @@ try {
                         user-select: none;
                         margin-right: 12px; 
                     \`;
-    //设置状态为空闲
-    div.dataset.state = "idle";
-    div.innerHTML = '<span id="leigod-status-text">⚙️ 自动监控</span>';
-    div.onmouseenter = () => {
-      if (div.dataset.state === "idle") {
-        div.style.background = "rgba(255,255,255,0.2)";
-        div.style.color = "#fff";
-      }
-    };
-    div.onmouseleave = () => {
-      if (div.dataset.state === "idle") {
-        div.style.background = "rgba(255,255,255,0.1)";
-        div.style.color = "#a4a4a4";
-      }
-    };
-    div.onclick = () => {
-      //TODO:考虑后面加入点击设置等待时间
-    };
-    navControl.insertBefore(div, rechargeBtn);
-  }
-}, 500);`
-
+                        //设置状态为空闲
+                        div.dataset.state = "idle";
+                        div.innerHTML = '<span id="leigod-status-text">⚙️ 自动监控</span>';
+                        div.onmouseenter = () => {
+                        if (div.dataset.state === "idle") {
+                            div.style.background = "rgba(255,255,255,0.2)";
+                            div.style.color = "#fff";
+                        }
+                        };
+                        div.onmouseleave = () => {
+                        if (div.dataset.state === "idle") {
+                            div.style.background = "rgba(255,255,255,0.1)";
+                            div.style.color = "#a4a4a4";
+                        }
+                        };
+                        div.onclick = () => {
+                        //TODO:考虑后面加入点击设置等待时间
+                        };
+                        navControl.insertBefore(div, rechargeBtn);
+                    }
+                    }, 500);`
                     ;
 
                 try {
@@ -670,7 +667,7 @@ try {
             writeLog('[Update UI State] Failed to update UI state: ' + e.message);
         }
     }
-    //
+    //该函数用于处理时间吧时间转换为 mm:ss格式
     function formatTime(time) {
         if (time < 0) time = 0;
         const totalSeconds = Math.ceil(time / 1000); //毫秒转换为秒
