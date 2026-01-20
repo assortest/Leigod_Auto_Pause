@@ -1,5 +1,5 @@
 try {
-  "use strict";
+  ("use strict");
   /*Can you hear forever, my heart beat
       君に届くようにと描いたのは
       Don’t you know everlasting stories
@@ -15,13 +15,18 @@ try {
   let GLOBAL_USER_TOKEN = "";
   //========== 常量 ==========
   //社区维护的游戏进程名
+  /*
+  有点怪，雷神居然有在维护这个indexdb，我一直以为是历史遗留问题，但是这次他居然吧战地6和星际战甲这类游戏的进程名放进来了。。。
+  这不对了，他这个设计的意义是什么呢？
+  */
   const CommunityGameDB = {
     1559: "VALORANT-Win64-Shipping.exe", //无畏契约
-    2167: "Warframe.x64.exe", //星际战甲
-    258: "Warframe.x64.exe", //星际战甲
+    // 2167: "Warframe.x64.exe", //星际战甲
+    // 258: "Warframe.x64.exe", //星际战甲
     137: "vermintide2_dx12.exe,vermintide2.exe", //末世鼠疫2
     254: "EscapeFromTarkov.exe", //逃离塔科夫
     5226: "PioneerGame.exe", //ARC Raiders
+    7288: "Aion2.exe", //永恒之塔
   };
   const ExcludedGameIDs = [109, 437, 1544, 274, 1921, 1342, 860]; //steam epic 暴雪 育碧uplay eaapp  rockstar GOG
   const UI_STATES = {
@@ -64,8 +69,10 @@ try {
     const logMessage = `[${timestamp}] ${message}\n---------------------------------------\n`;
     try {
       fs.appendFileSync(logFilePath, logMessage);
-    // eslint-disable-next-line no-unused-vars
-    } catch (err) { /* empty */ } //写入日志文件
+      // eslint-disable-next-line no-unused-vars
+    } catch (err) {
+      /* empty */
+    } //写入日志文件
   }
   //该函数用于解析游戏进程字符串
   function parseGameProcess(gameProcessStr) {
@@ -102,7 +109,7 @@ try {
       });
       notice.show();
       writeLog(
-        `[Notification] Displayed: "${title}" - "${body}" (silent: ${silent})`
+        `[Notification] Displayed: "${title}" - "${body}" (silent: ${silent})`,
       );
     } catch (err) {
       writeLog(`[Notification] Failed to show: ${err.message}`);
@@ -120,7 +127,7 @@ try {
 
     start: function (processList) {
       writeLog(
-        `[Monitor] Received start command for: ${processList.join(", ")}`
+        `[Monitor] Received start command for: ${processList.join(", ")}`,
       );
 
       this.stop(false); //清理掉所有定时器
@@ -137,12 +144,12 @@ try {
         if (isProcessRunning) {
           //如果进程正在运行
           writeLog(
-            "[Monitor] Game is already running. Entering active monitoring state."
+            "[Monitor] Game is already running. Entering active monitoring state.",
           );
           this._enterActiveMonitoringState();
         } else {
           writeLog(
-            "[Monitor] Game is not running. Entering grace period state."
+            "[Monitor] Game is not running. Entering grace period state.",
           );
           this._enterGracePeriodState();
         }
@@ -194,14 +201,14 @@ try {
             if (anyRunning) {
               writeLog(
                 `[Monitor] Found at least one running process. Results: ${JSON.stringify(
-                  results
-                )}`
+                  results,
+                )}`,
               );
             } else {
               writeLog(
                 `[Monitor] No target processes found running. Results: ${JSON.stringify(
-                  results
-                )}`
+                  results,
+                )}`,
               );
             }
             resolve(anyRunning);
@@ -221,7 +228,7 @@ try {
           if (!isProcessRunning) {
             //如果程序没有运行进入宽恕期
             writeLog(
-              "[Monitor] Game process has exited. Switching from active monitoring to grace period."
+              "[Monitor] Game process has exited. Switching from active monitoring to grace period.",
             );
             this.stop(false);
             this._enterGracePeriodState();
@@ -234,7 +241,7 @@ try {
       showStartupNotification(
         "进入等待期",
         "程序进入等待期十分钟后会将会暂停加速",
-        false
+        false,
       );
       const startTime = Date.now(); //等待期开始时间
       const endTime = startTime + 600000; //等待期结束时间
@@ -248,25 +255,25 @@ try {
           this.stop(true);
           const mainWindow = BrowserWindow.getAllWindows()[0];
           writeLog(
-            "[Monitor] 10-minute grace period ended. Game did not start. Pausing acceleration."
+            "[Monitor] 10-minute grace period ended. Game did not start. Pausing acceleration.",
           );
           if (mainWindow) {
             try {
               showStartupNotification("等待期已过", "正在暂停加速器", false);
               await mainWindow.webContents.executeJavaScript(
-                'window.leigodSimplify.invoke("stop-acc",{"reason": "other"})'
+                'window.leigodSimplify.invoke("stop-acc",{"reason": "other"})',
               );
               await mainWindow.webContents.executeJavaScript(
-                'window.leigodSimplify.invoke("pause-user-time")'
+                'window.leigodSimplify.invoke("pause-user-time")',
               );
             } catch (e) {
               writeLog(
-                `[Monitor] ERROR: Failed to execute JS for pausing. Error: ${e}`
+                `[Monitor] ERROR: Failed to execute JS for pausing. Error: ${e}`,
               );
             }
           } else {
             writeLog(
-              "[Monitor] ERROR: Could not find main window to pause acceleration."
+              "[Monitor] ERROR: Could not find main window to pause acceleration.",
             );
           }
         } else {
@@ -286,7 +293,7 @@ try {
         this._checkProcessExists().then((isProcessRunning) => {
           if (isProcessRunning) {
             writeLog(
-              "[Monitor] Game has started during grace period. Switching to active monitoring state."
+              "[Monitor] Game has started during grace period. Switching to active monitoring state.",
             );
             this.stop(false);
             this._enterActiveMonitoringState();
@@ -309,16 +316,16 @@ try {
           writeLog(
             `[Token] Successfully obtained token. The token is ${GLOBAL_USER_TOKEN.substring(
               0,
-              10
-            )}...`
+              10,
+            )}...`,
           );
         } else {
           writeLog(
             `[Token] Failed to obtain token : \n${JSON.stringify(
               result,
               null,
-              2
-            )}.`
+              2,
+            )}.`,
           );
         }
       } catch (e) {
@@ -336,8 +343,8 @@ try {
         `[patchIpcMain] "start-acc" intercepted!\nInitial Data:\n${JSON.stringify(
           gameInfoArg,
           null,
-          2
-        )}`
+          2,
+        )}`,
       );
 
       const result = await listener(event, ...args);
@@ -345,8 +352,8 @@ try {
         ` [patchIpcMain] "result" intercepted!\nInitial Data:\n${JSON.stringify(
           result,
           null,
-          2
-        )}`
+          2,
+        )}`,
       );
 
       if (result && result.error && result.error.message.code === 10007) {
@@ -355,13 +362,13 @@ try {
       // 在原始加速逻辑成功后
       if (result && result.result.code === 200) {
         writeLog(
-          "[interceptedStartAcc] Acceleration seems successful. Now fetching game info..."
+          "[interceptedStartAcc] Acceleration seems successful. Now fetching game info...",
         );
         const mainWindow = BrowserWindow.getAllWindows()[0];
         handleGameProcessMonitoring(mainWindow, gameInfoArg);
       } else {
         writeLog(
-          `[interceptedStartAcc] Acceleration did not start successfully. Aborting.`
+          `[interceptedStartAcc] Acceleration did not start successfully. Aborting.`,
         );
       }
       return result;
@@ -376,7 +383,7 @@ try {
         writeLog(`[patchIpcMain] "${channel}" intercepted. Stopping Monitor.`);
       } else {
         writeLog(
-          `[patchIpcMain] "${channel}" intercepted. Keeping Monitor alive.`
+          `[patchIpcMain] "${channel}" intercepted. Keeping Monitor alive.`,
         );
       }
 
@@ -384,7 +391,6 @@ try {
     };
   }
 
- 
   /*function interceptedRecoverUserTime(listener, channel) {
     return async (event, ...args) => {
       writeLog(`[interceptedRecoverUserTime] "${channel}" intercepted.`);
@@ -414,7 +420,7 @@ try {
       // case "leigod-simplify-recover-user-time": //讲真，虽然我不认为真的会有人就解除暂停不加速游戏但是还是处理一下吧
       //   newListener = interceptedRecoverUserTime(listener, channel);
       //   break;
- 
+
       default:
         // 不拦截其他通道，直接使用原始listener
         return originalIpcMainHandle.call(ipcMain, channel, listener);
@@ -457,11 +463,10 @@ try {
                         });
                         })(${gameInfoArg.game_id});return game;
                         })();`;
-      const GameInfo = await mainWindow.webContents.executeJavaScript(
-        QueryScript
-      );
+      const GameInfo =
+        await mainWindow.webContents.executeJavaScript(QueryScript);
       writeLog(
-        `[GameMonitoring] Query returned:\n${JSON.stringify(GameInfo, null, 2)}`
+        `[GameMonitoring] Query returned:\n${JSON.stringify(GameInfo, null, 2)}`,
       );
       //判断进程
       if (GameInfo && GameInfo !== "") {
@@ -471,10 +476,10 @@ try {
           showStartupNotification(
             "自动暂停已跳过",
             "检测到当前加速项属于平台或排除项，自动暂停功能已跳过，请务必留意加速时长。",
-            false
+            false,
           );
           writeLog(
-            `[GameMonitoring] Game ID ${GameInfo.id} is in the exclusion list. ignored.`
+            `[GameMonitoring] Game ID ${GameInfo.id} is in the exclusion list. ignored.`,
           );
           return;
         }
@@ -483,12 +488,12 @@ try {
           //先检查社区游戏数据库，防止雷神数据库中的进程名有假
           //如果社区游戏数据库中有此游戏
           gameProcessList = parseGameProcess(
-            CommunityGameDB[String(GameInfo.id)]
+            CommunityGameDB[String(GameInfo.id)],
           );
           writeLog(
             `[GameMonitoring] Parsed CommunityGameDB processes: ${JSON.stringify(
-              gameProcessList
-            )}`
+              gameProcessList,
+            )}`,
           );
           MonitoringManager.start(gameProcessList);
         } else if (GameInfo.game_process && GameInfo.game_process !== "") {
@@ -496,25 +501,25 @@ try {
           gameProcessList = parseGameProcess(GameInfo.game_process);
           writeLog(
             `[GameMonitoring] Parsed game processes: ${JSON.stringify(
-              gameProcessList
-            )}`
+              gameProcessList,
+            )}`,
           );
           MonitoringManager.start(gameProcessList);
         } else {
           showStartupNotification(
             "获取游戏进程失败",
             "目标game_process字段中无法获取游戏名称,将无法启动自动暂停功能。",
-            false
+            false,
           );
           writeLog(
-            `[GameMonitoring] No game_process found. Aborting monitoring.`
+            `[GameMonitoring] No game_process found. Aborting monitoring.`,
           );
           MonitoringManager.stop(true);
         }
       }
     } catch (e) {
       writeLog(
-        `[patchIpcMain] ERROR: Failed to call "get-game-info".\nError: ${e}`
+        `[patchIpcMain] ERROR: Failed to call "get-game-info".\nError: ${e}`,
       );
     }
   }
@@ -576,7 +581,7 @@ try {
                     }, 500);`;
         try {
           window.webContents.executeJavaScript(script);
-        // eslint-disable-next-line no-unused-vars
+          // eslint-disable-next-line no-unused-vars
         } catch (e) {
           writeLog("[Monitor] UI Injection Error");
         }
@@ -620,7 +625,7 @@ try {
     const mainWindow = BrowserWindow.getAllWindows()[0];
     if (!mainWindow) {
       writeLog(
-        "[patchMainWindowClose] Could not find main window to patch close event."
+        "[patchMainWindowClose] Could not find main window to patch close event.",
       );
       return;
     }
@@ -628,7 +633,7 @@ try {
     //监听session-end 用于在关机时暂停加速器
     mainWindow.on("session-end", (event) => {
       writeLog(
-        "[Shutdown] session-end TRIGGERED! Windows is asking to shutdown."
+        "[Shutdown] session-end TRIGGERED! Windows is asking to shutdown.",
       );
       event.preventDefault(); //阻止关机，虽然并没有什么卵用
       writeLog("[Shutdown] Triggered. Launching CURL Missile...");
@@ -669,14 +674,16 @@ try {
             detached: true, //运行在后台
             stdio: "ignore", // 忽略输出
             windowsHide: true, //忽略Windows控制台
-          }
+          },
         );
         writeLog("[Shutdown] CURL Launched with JSON Payload.");
 
         child.unref(); //让父进程可以立即退出，不等待curl请求完成
         const start = Date.now();
         //Domain Expansion
-        while (Date.now() - start < 1500) {/*Infinite Void*/} //空转1.5秒来等待拉起curl防止进程结束没发包
+        while (Date.now() - start < 1500) {
+          /*Infinite Void*/
+        } //空转1.5秒来等待拉起curl防止进程结束没发包
 
         writeLog("[Shutdown] CURL launched. Electron exiting.");
       } catch (e) {
@@ -691,25 +698,25 @@ try {
       //监听窗口关闭事件
       event.preventDefault(); //preventDefault
       writeLog(
-        "[Close Intercept] Window close event triggered. Preventing immediate close."
+        "[Close Intercept] Window close event triggered. Preventing immediate close.",
       );
       try {
         writeLog(
-          '[Close Intercept] Attempting to execute "pause-user-time" command...'
+          '[Close Intercept] Attempting to execute "pause-user-time" command...',
         );
         await mainWindow.webContents.executeJavaScript(
-          'window.leigodSimplify.invoke("pause-user-time")'
+          'window.leigodSimplify.invoke("pause-user-time")',
         );
-      // eslint-disable-next-line no-unused-vars
+        // eslint-disable-next-line no-unused-vars
       } catch (e) {
         /*这里执行暂停后会抛出异常但是无所谓了因为已经暂停了*/
         writeLog(
-          "[Close Intercept] Caught expected exception after command execution. Ignoring."
+          "[Close Intercept] Caught expected exception after command execution. Ignoring.",
         );
       } finally {
         //无论否成功，都强制退出程序
         writeLog(
-          "[Close Intercept] All tasks finished. Forcing application quit."
+          "[Close Intercept] All tasks finished. Forcing application quit.",
         );
         app.exit(0);
       }
@@ -719,8 +726,10 @@ try {
   //程序入口与初始化
   try {
     fs.writeFileSync(logFilePath, "");
-  // eslint-disable-next-line no-unused-vars
-  } catch (err) { /* empty */ } //清空日志文件
+    // eslint-disable-next-line no-unused-vars
+  } catch (err) {
+    /* empty */
+  } //清空日志文件
   writeLog("[Main] Script loaded and log file cleared.");
 
   app.whenReady().then(() => {
@@ -728,7 +737,7 @@ try {
     showStartupNotification(
       "Leigod Smart Monitor 已启用",
       "leigod-auto-pause插件加载成功",
-      false
+      false,
     );
     patchIpcMain();
     injectStatusWidget();
