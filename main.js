@@ -26,7 +26,9 @@ try {
     137: "vermintide2_dx12.exe,vermintide2.exe", //末世鼠疫2
     254: "EscapeFromTarkov.exe", //逃离塔科夫
     5226: "PioneerGame.exe", //ARC Raiders
-    7288: "Aion2.exe", //永恒之塔
+    7288: "Aion2.exe", //永恒之塔2
+    114: "League of Legends.exe", //英雄联盟
+    931: "League of Legends.exe", //英雄联盟
   };
   const ExcludedGameIDs = [109, 437, 1544, 274, 1921, 1342, 860]; //steam epic 暴雪 育碧uplay eaapp  rockstar GOG
   const UI_STATES = {
@@ -40,7 +42,7 @@ try {
     //倒计时
     COUNTING: {
       color: "#ff9800",
-      bg: "rgba(255, 152, 0, 0.15)",
+      bg: "rgba(255, 153, 0, 0.22)",
       text: "⏳ 倒计时",
       code: "counting",
     },
@@ -50,6 +52,12 @@ try {
       bg: "rgba(255,255,255,0.1)",
       text: "⚙️ 自动监控",
       code: "idle",
+    },
+    MISSING: {
+      color: "#2196f3",
+      bg: "rgba(33, 150, 243, 0.15)",
+      text: "🔗 提交进程",
+      code: "missing",
     },
   };
   //========== 模块引入 ==========
@@ -359,7 +367,7 @@ try {
       if (result && result.error && result.error.message.code === 10007) {
         return result;
       }
-      // 在原始加速逻辑成功后
+
       if (result && result.result.code === 200) {
         writeLog(
           "[interceptedStartAcc] Acceleration seems successful. Now fetching game info...",
@@ -472,10 +480,11 @@ try {
       if (GameInfo && GameInfo !== "") {
         //如果GameInfo 不为空
         let gameProcessList = [];
-        if (ExcludedGameIDs.includes(GameInfo.id)) {
+        /*判断是不是在排除项目，其次看看是不是免费加速的。如果是免费或者平台就不进入状态机*/
+        if (ExcludedGameIDs.includes(GameInfo.id) || GameInfo.is_free === "1") {
           showStartupNotification(
             "自动暂停已跳过",
-            "检测到当前加速项属于平台或排除项，自动暂停功能已跳过，请务必留意加速时长。",
+            "检测到当前加速项属于平台或免费项，自动暂停功能已跳过，请务必留意加速时长。",
             false,
           );
           writeLog(
@@ -508,13 +517,14 @@ try {
         } else {
           showStartupNotification(
             "获取游戏进程失败",
-            "目标game_process字段中无法获取游戏名称,将无法启动自动暂停功能。",
+            "目标game_process字段中无法获取游戏名称,点击顶部状态栏“🔗 提交进程”进行反馈提交。",
             false,
           );
           writeLog(
             `[GameMonitoring] No game_process found. Aborting monitoring.`,
           );
           MonitoringManager.stop(true);
+          updateUiState("MISSING");
         }
       }
     } catch (e) {
@@ -562,19 +572,23 @@ try {
                         div.dataset.state = "idle";
                         div.innerHTML = '<span id="leigod-status-text">⚙️ 自动监控</span>';
                         div.onmouseenter = () => {
-                        if (div.dataset.state === "idle") {
-                            div.style.background = "rgba(255,255,255,0.2)";
-                            div.style.color = "#fff";
+                        if (div.dataset.state === "missing") {
+                            div.style.background = "rgba(33, 150, 243, 0.4)";
+                            div.style.color = "#1a75c2";
                         }
                         };
                         div.onmouseleave = () => {
-                        if (div.dataset.state === "idle") {
-                            div.style.background = "rgba(255,255,255,0.1)";
-                            div.style.color = "#a4a4a4";
+                        if (div.dataset.state === "missing") {
+                            div.style.background = "rgba(33, 150, 243, 0.1)";
+                            div.style.color = "#2196f3";
                         }
                         };
                         div.onclick = () => {
-                        //TODO:考虑后面加入点击设置等待时间
+                          if(div.dataset.state==="missing")
+                          { //先弹github的提交进程的说明页面把,看后续是否需要。
+                          window.leigodSimplify.invoke("open-external", "https://github.com/assortest/Leigod_Auto_Pause?tab=readme-ov-file#-%E8%B4%A1%E7%8C%AE%E6%8C%87%E5%8D%97");
+                          }
+                        
                         };
                         navControl.insertBefore(div, rechargeBtn);
                     }
