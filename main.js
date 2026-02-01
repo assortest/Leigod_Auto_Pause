@@ -30,6 +30,7 @@ try {
     7288: "Aion2.exe", //永恒之塔2
     114: "League of Legends.exe", //英雄联盟
     931: "League of Legends.exe", //英雄联盟
+    2661:"Discovery.exe,Discovery-d.exe,Discovery-e.exe" //THE FINALS
   };
   const ExcludedGameIDs = [109, 437, 1544, 274, 1921, 1342, 860]; //steam epic 暴雪 育碧uplay eaapp  rockstar GOG
   const UI_STATES = {
