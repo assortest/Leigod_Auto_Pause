@@ -13,6 +13,7 @@ try {
 
   //========== 全局变量 ==========
   let GLOBAL_USER_TOKEN = "";
+  let mainWindow;
   //========== 常量 ==========
   //社区维护的游戏进程名
   /*
@@ -61,7 +62,7 @@ try {
     },
   };
   //========== 模块引入 ==========
-  const { app, ipcMain, BrowserWindow, Notification } = require("electron"); // 结构引入 Electron 使用的模块
+  const { app, ipcMain, Notification } = require("electron"); // 结构引入 Electron 使用的模块
   const { exec, spawn } = require("child_process");
   const path = require("path"); //用于处理路径
   const fs = require("fs"); //用于文件操作
@@ -259,31 +260,46 @@ try {
       this.countdownIntervalId = setInterval(async () => {
         const remainingTime = endTime - Date.now();
         if (remainingTime <= 0) {
-          //如果时间小于0就执行暂停加速
-          this.stop(true);
-          const mainWindow = BrowserWindow.getAllWindows()[0];
-          writeLog(
-            "[Monitor] 10-minute grace period ended. Game did not start. Pausing acceleration.",
-          );
-          if (mainWindow) {
-            try {
-              showStartupNotification("等待期已过", "正在暂停加速器", false);
-              await mainWindow.webContents.executeJavaScript(
-                'window.leigodSimplify.invoke("stop-acc",{"reason": "other"})',
-              );
-              await mainWindow.webContents.executeJavaScript(
-                'window.leigodSimplify.invoke("pause-user-time")',
-              );
-            } catch (e) {
+          //如果时间小于0就执行暂停加速然后最后一次判断有没有目标进程，如果有就进入活动期
+          this.stop(false); //先停止定时器
+          writeLog("[Monitor] Countdown finished. Performing final check..."); //做最后一次检查
+          this._checkProcessExists().then(async (isProcessRunning) => {
+            if (isProcessRunning) {
               writeLog(
-                `[Monitor] ERROR: Failed to execute JS for pausing. Error: ${e}`,
+                "[Monitor] Game has started during grace period. Switching to active monitoring state.",
               );
+              this._enterActiveMonitoringState();
+            } else {
+              //确定没有运行就真正处理暂停
+              this.stop(true);
+              writeLog(
+                "[Monitor] 10-minute grace period ended. Game did not start. Pausing acceleration.",
+              );
+              if (mainWindow) {
+                try {
+                  showStartupNotification(
+                    "等待期已过",
+                    "正在暂停加速器",
+                    false,
+                  );
+                  await mainWindow.webContents.executeJavaScript(
+                    'window.leigodSimplify.invoke("stop-acc",{"reason": "other"})',
+                  );
+                  await mainWindow.webContents.executeJavaScript(
+                    'window.leigodSimplify.invoke("pause-user-time")',
+                  );
+                } catch (e) {
+                  writeLog(
+                    `[Monitor] ERROR: Failed to execute JS for pausing. Error: ${e}`,
+                  );
+                }
+              } else {
+                writeLog(
+                  "[Monitor] ERROR: Could not find main window to pause acceleration.",
+                );
+              }
             }
-          } else {
-            writeLog(
-              "[Monitor] ERROR: Could not find main window to pause acceleration.",
-            );
-          }
+          });
         } else {
           //这样设计是为了防止出现9:55 直接跳到了 9:53了 而没有9:54 这种情况 。
           //大概就是记录当前时间和上一次更新的时间，如果不一样才更新
@@ -372,7 +388,6 @@ try {
         writeLog(
           "[interceptedStartAcc] Acceleration seems successful. Now fetching game info...",
         );
-        const mainWindow = BrowserWindow.getAllWindows()[0];
         handleGameProcessMonitoring(mainWindow, gameInfoArg);
       } else {
         writeLog(
@@ -539,9 +554,14 @@ try {
   function injectStatusWidget() {
     app.on("browser-window-created", (event, window) => {
       writeLog("[Monitor] enter browser-window-created ...");
-      window.webContents.on("did-finish-load", () => {
-        writeLog("[Monitor] Injecting UI widget...");
-        const script = `const timer = setInterval(() => {
+      try {
+        window.webContents.on("did-finish-load", () => {
+          const target = window.webContents.getURL();
+          if (target && target.includes("renderer.asar/index.html")) {
+            writeLog("[Monitor] Injecting UI widget...");
+            mainWindow = window; //拿到主窗口后续用于注入状态组件以及获取游戏进程
+            writeLog("[Monitor] Main Window registered.");
+            const script = `const timer = setInterval(() => {
                         const navControl = document.querySelector(".nav-control");
                         const rechargeBtn = document.querySelector(".recharge-enrty");
                         if (navControl && rechargeBtn) {
@@ -593,19 +613,22 @@ try {
                         navControl.insertBefore(div, rechargeBtn);
                     }
                     }, 500);`;
-        try {
-          window.webContents.executeJavaScript(script);
-          // eslint-disable-next-line no-unused-vars
-        } catch (e) {
-          writeLog("[Monitor] UI Injection Error");
-        }
-      });
+            try {
+              window.webContents.executeJavaScript(script);
+              // eslint-disable-next-line no-unused-vars
+            } catch (e) {
+              writeLog("[Monitor] UI Injection Error");
+            }
+          }
+        });
+      } catch (e) {
+        writeLog(`[Monitor] UI Injection Check Error: ${e.message}`);
+      }
     });
   }
   //该函数用于更新ui状态
   function updateUiState(statecode, timeText = null) {
     //根据状态码拿到相应的配置
-    const mainWindow = BrowserWindow.getAllWindows()[0];
     const cfg = UI_STATES[statecode.toUpperCase()];
     if (!cfg) {
       //兜底检查
@@ -636,7 +659,6 @@ try {
   //该函数用于拦截主窗口关闭事件 用于在关机时暂停加速器
   function patchMainWindowClose() {
     writeLog("[patchMainWindowClose] Patching main window close event...");
-    const mainWindow = BrowserWindow.getAllWindows()[0];
     if (!mainWindow) {
       writeLog(
         "[patchMainWindowClose] Could not find main window to patch close event.",
