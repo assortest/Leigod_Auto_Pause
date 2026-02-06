@@ -555,14 +555,17 @@ try {
   // ========== UI注入相关函数 ==========
   //该函数用于注入状态组件
   function injectStatusWidget() {
+    let mainWindowCaptured = false;
     app.on("browser-window-created", (event, window) => {
       writeLog("[Monitor] enter browser-window-created ...");
       try {
         window.webContents.on("did-finish-load", () => {
           const target = window.webContents.getURL();
           if (target && target.includes("renderer.asar/index.html")) {
+            if (mainWindowCaptured) return; //防止后续有新的窗口弹出覆盖掉这个mainwindow
             writeLog("[Monitor] Injecting UI widget...");
             mainWindow = window; //拿到主窗口后续用于注入状态组件以及获取游戏进程
+            mainWindowCaptured = true;
             writeLog("[Monitor] Main Window registered.");
             const script = `const timer = setInterval(() => {
                         const navControl = document.querySelector(".nav-control");
