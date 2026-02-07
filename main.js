@@ -34,6 +34,7 @@ try {
     6338:"F1_25.exe", //F1 25
     188:"Titanfall2.exe", //泰坦陨落2
     5406:"EpicSeven.exe",//第七史诗
+    3043:"StarRail.exe"//崩坏：星穹铁道
   };
   const ExcludedGameIDs = [109, 437, 1544, 274, 1921, 1342, 860]; //steam epic 暴雪 育碧uplay eaapp  rockstar GOG
   const UI_STATES = {
