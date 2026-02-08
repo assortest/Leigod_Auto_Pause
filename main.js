@@ -30,12 +30,12 @@ try {
     7288: "Aion2.exe", //永恒之塔2
     114: "League of Legends.exe", //英雄联盟
     931: "League of Legends.exe", //英雄联盟
-    2661:"Discovery.exe,Discovery-d.exe,Discovery-e.exe", //THE FINALS
-    6338:"F1_25.exe", //F1 25
-    188:"Titanfall2.exe", //泰坦陨落2
-    5406:"EpicSeven.exe",//第七史诗
-    3043:"StarRail.exe",//崩坏：星穹铁道
-    232:"HuntGame.exe",//猎杀：对决
+    2661: "Discovery.exe,Discovery-d.exe,Discovery-e.exe", //THE FINALS
+    6338: "F1_25.exe", //F1 25
+    188: "Titanfall2.exe", //泰坦陨落2
+    5406: "EpicSeven.exe", //第七史诗
+    3043: "StarRail.exe", //崩坏：星穹铁道
+    232: "HuntGame.exe", //猎杀：对决
   };
   const ExcludedGameIDs = [109, 437, 1544, 274, 1921, 1342, 860]; //steam epic 暴雪 育碧uplay eaapp  rockstar GOG
   const UI_STATES = {
@@ -467,14 +467,9 @@ try {
       return hookIpcHandle(channel, listener, originalIpcMainHandle);
     };
   }
-  //该函数用于处理游戏进程为后续监控做准备
-  async function handleGameProcessMonitoring(mainWindow, gameInfoArg) {
-    if (!mainWindow || !gameInfoArg || !gameInfoArg.game_id) {
-      // 检查窗口和参数
-      return;
-    }
-    try {
-      const QueryScript = `
+  //该函数用于从IndexedDB中获取游戏信息
+  async function fetchFromIndexedDB(mainWindow, game_id) {
+    const QueryScript = `
                          (async () => {
                          const game = await (async (targetId) => {
                         const db = await new Promise((r, x) => {
@@ -490,63 +485,147 @@ try {
                         q.onsuccess = () => r(q.result);
                         q.onerror = () => x(q.error);
                         });
-                        })(${gameInfoArg.game_id});return game;
+                        })(${game_id});return game;
                         })();`;
-      const GameInfo =
-        await mainWindow.webContents.executeJavaScript(QueryScript);
-      writeLog(
-        `[GameMonitoring] Query returned:\n${JSON.stringify(GameInfo, null, 2)}`,
+    try {
+      return await mainWindow.webContents.executeJavaScript(QueryScript);
+    } catch (error) {
+      writeLog(`[fetchFromIndexedDB] Error fetching game info: ${error}`);
+      return null;
+    }
+  }
+  //该函数用于从Leigod API获取游戏信息
+  async function fetchFromLeigodAPI(mainWindow, game_id) {
+    try {
+      return mainWindow.webContents.executeJavaScript(
+        `window.leigodSimplify.invoke("get-game-info", {game_id: ${game_id}})`,
       );
-      //判断进程
-      if (GameInfo && GameInfo !== "") {
-        //如果GameInfo 不为空
-        let gameProcessList = [];
-        /*判断是不是在排除项目，其次看看是不是免费加速的。如果是免费或者平台就不进入状态机*/
-        if (ExcludedGameIDs.includes(GameInfo.id) || GameInfo.is_free === "1") {
-          showStartupNotification(
-            "自动暂停已跳过",
-            "检测到当前加速项属于平台或免费项，自动暂停功能已跳过，请务必留意加速时长。",
-            false,
-          );
-          writeLog(
-            `[GameMonitoring] Game ID ${GameInfo.id} is in the exclusion list. ignored.`,
-          );
-          return;
+    } catch (error) {
+      writeLog(`[fetchFromLeigodAPI] Error fetching game info: ${error}`);
+      return null;
+    }
+  }
+  //该函数用于获取游戏信息，优先从IndexedDB中获取，其次从Leigod API中获取
+  async function getGameInfoStrategies(mainWindow, game_id) {
+    //先试图从IndexedDB中获取游戏信息
+    let GameInfo = await fetchFromIndexedDB(mainWindow, game_id);
+      writeLog(
+        `[GameMonitoring] Game info: ${JSON.stringify(GameInfo)}`,
+      );
+    if (GameInfo && GameInfo.game_process && GameInfo.game_process !== "") {
+      writeLog(
+        `[GameMonitoring] Found game info in IndexedDB: ${JSON.stringify(
+          GameInfo,
+        )}`,
+      );
+    
+      return GameInfo;
+    }
+    //如果IndexedDB中没有游戏信息，就从Leigod API中获取
+    const apiResult = await fetchFromLeigodAPI(mainWindow, game_id);
+    if (!apiResult || !Array.isArray(apiResult) || apiResult.length === 0) {
+      writeLog(
+        `[GameMonitoring] No game_process found. Aborting monitoring.`,
+      );
+      return null;
+    }
+    //遍历Leigod API获取的游戏信息，找到第一个game_process不为空的游戏信息
+    for (let i = 0; i < apiResult.length; i++) {
+      const item = apiResult[i];
+      if (
+        item.game_process &&
+        item.game_process !== "" &&
+        item.game_process !== null
+      ) {
+        //以IndexedDB中的免费信息为准
+        if (GameInfo && item) {
+         writeLog(`[GameMonitoring] Overwriting API is_free (${item.is_free}) with Local is_free (${GameInfo.is_free})`);
+         item.is_free = GameInfo.is_free; // 不要问我为什么要这样莫名其妙，你去问问为什么雷神官方的is_free字段居然会不一样！！
         }
-        //检查社区游戏数据库
-        if (CommunityGameDB[String(GameInfo.id)]) {
-          //先检查社区游戏数据库，防止雷神数据库中的进程名有假
-          //如果社区游戏数据库中有此游戏
-          gameProcessList = parseGameProcess(
-            CommunityGameDB[String(GameInfo.id)],
-          );
-          writeLog(
-            `[GameMonitoring] Parsed CommunityGameDB processes: ${JSON.stringify(
-              gameProcessList,
-            )}`,
-          );
-          MonitoringManager.start(gameProcessList);
-        } else if (GameInfo.game_process && GameInfo.game_process !== "") {
-          //进入雷神数据库获取游戏进程（我服了，雷神的进程库还有假的进程名，这个和写假注释一样可恶！他猫猫的）
-          gameProcessList = parseGameProcess(GameInfo.game_process);
-          writeLog(
-            `[GameMonitoring] Parsed game processes: ${JSON.stringify(
-              gameProcessList,
-            )}`,
-          );
-          MonitoringManager.start(gameProcessList);
-        } else {
-          showStartupNotification(
-            "获取游戏进程失败",
-            "目标game_process字段中无法获取游戏名称,点击顶部状态栏“🔗 提交进程”进行反馈提交。",
-            false,
-          );
-          writeLog(
-            `[GameMonitoring] No game_process found. Aborting monitoring.`,
-          );
-          MonitoringManager.stop(true);
-          updateUiState("MISSING");
-        }
+        GameInfo = item;
+        writeLog(
+          `[GameMonitoring] Found game info in Leigod API: ${JSON.stringify(
+            GameInfo,
+          )}`,
+        );
+        return GameInfo;
+      }
+    }
+    return null;
+  }
+
+  //该函数用于处理游戏进程为后续监控做准备
+  async function handleGameProcessMonitoring(mainWindow, gameInfoArg) {
+    if (!mainWindow || !gameInfoArg || !gameInfoArg.game_id) {
+      // 检查窗口和参数
+      return;
+    }
+    try {
+      //优先从IndexedDB中获取游戏信息
+      let GameInfo = await getGameInfoStrategies(
+        mainWindow,
+        gameInfoArg.game_id,
+      );
+      //如果GameInfo 不为空
+      let gameProcessList = [];
+      if (!GameInfo) {
+        showStartupNotification(
+          "获取游戏进程失败",
+          "目标game_process字段中无法获取游戏名称,点击顶部状态栏“🔗 提交进程”进行反馈提交。",
+          false,
+        );
+        writeLog(
+          `[GameMonitoring] No game_process found. Aborting monitoring.`,
+        );
+        MonitoringManager.stop(true);
+        updateUiState("MISSING");
+        return;
+      }
+      /*判断是不是在排除项目，其次看看是不是免费加速的。如果是免费或者平台就不进入状态机*/
+      if (ExcludedGameIDs.includes(GameInfo.id) || GameInfo.is_free === "1") {
+        showStartupNotification(
+          "自动暂停已跳过",
+          "检测到当前加速项属于平台或免费项，自动暂停功能已跳过，请务必留意加速时长。",
+          false,
+        );
+        writeLog(
+          `[GameMonitoring] Game ID ${GameInfo.id} is in the exclusion list. ignored.`,
+        );
+        return;
+      }
+      //检查社区游戏数据库
+      if (CommunityGameDB[String(GameInfo.id)]) {
+        //先检查社区游戏数据库，防止雷神数据库中的进程名有假
+        //如果社区游戏数据库中有此游戏
+        gameProcessList = parseGameProcess(
+          CommunityGameDB[String(GameInfo.id)],
+        );
+        writeLog(
+          `[GameMonitoring] Parsed CommunityGameDB processes: ${JSON.stringify(
+            gameProcessList,
+          )}`,
+        );
+        MonitoringManager.start(gameProcessList);
+      } else if (GameInfo.game_process && GameInfo.game_process !== "") {
+        //进入雷神数据库获取游戏进程（我服了，雷神的进程库还有假的进程名，这个和写假注释一样可恶！他猫猫的）
+        gameProcessList = parseGameProcess(GameInfo.game_process);
+        writeLog(
+          `[GameMonitoring] Parsed game processes: ${JSON.stringify(
+            gameProcessList,
+          )}`,
+        );
+        MonitoringManager.start(gameProcessList);
+      } else {
+        showStartupNotification(
+          "获取游戏进程失败",
+          "目标game_process字段中无法获取游戏名称,点击顶部状态栏“🔗 提交进程”进行反馈提交。",
+          false,
+        );
+        writeLog(
+          `[GameMonitoring] No game_process found. Aborting monitoring.`,
+        );
+        MonitoringManager.stop(true);
+        updateUiState("MISSING");
       }
     } catch (e) {
       writeLog(
