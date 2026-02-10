@@ -37,6 +37,7 @@ try {
     3043: "StarRail.exe", //崩坏：星穹铁道
     232: "HuntGame.exe", //猎杀：对决
     6985: "NBA2K26.exe", //NBA2k26
+    1693: "EternalReturn.exe", //永恒轮回
   };
   const ExcludedGameIDs = [109, 437, 1544, 274, 1921, 1342, 860]; //steam epic 暴雪 育碧uplay eaapp  rockstar GOG
   const UI_STATES = {
