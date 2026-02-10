@@ -36,8 +36,7 @@ try {
     5406: "EpicSeven.exe", //第七史诗
     3043: "StarRail.exe", //崩坏：星穹铁道
     232: "HuntGame.exe", //猎杀：对决
-    6985:"NBA2K26.exe",//NBA2k26
-
+    6985: "NBA2K26.exe", //NBA2k26
   };
   const ExcludedGameIDs = [109, 437, 1544, 274, 1921, 1342, 860]; //steam epic 暴雪 育碧uplay eaapp  rockstar GOG
   const UI_STATES = {
@@ -499,9 +498,11 @@ try {
   //该函数用于从Leigod API获取游戏信息
   async function fetchFromLeigodAPI(mainWindow, game_id) {
     try {
-      return mainWindow.webContents.executeJavaScript(
+      const result = await mainWindow.webContents.executeJavaScript(
         `window.leigodSimplify.invoke("get-game-info", {game_id: ${game_id}})`,
       );
+      writeLog(`[fetchFromLeigodAPI] Game info: ${JSON.stringify(result)}`);
+      return result;
     } catch (error) {
       writeLog(`[fetchFromLeigodAPI] Error fetching game info: ${error}`);
       return null;
@@ -511,24 +512,20 @@ try {
   async function getGameInfoStrategies(mainWindow, game_id) {
     //先试图从IndexedDB中获取游戏信息
     let GameInfo = await fetchFromIndexedDB(mainWindow, game_id);
-      writeLog(
-        `[GameMonitoring] Game info: ${JSON.stringify(GameInfo)}`,
-      );
+    writeLog(`[GameMonitoring] Game info: ${JSON.stringify(GameInfo)}`);
     if (GameInfo && GameInfo.game_process && GameInfo.game_process !== "") {
       writeLog(
         `[GameMonitoring] Found game info in IndexedDB: ${JSON.stringify(
           GameInfo,
         )}`,
       );
-    
+
       return GameInfo;
     }
     //如果IndexedDB中没有游戏信息，就从Leigod API中获取
     const apiResult = await fetchFromLeigodAPI(mainWindow, game_id);
     if (!apiResult || !Array.isArray(apiResult) || apiResult.length === 0) {
-      writeLog(
-        `[GameMonitoring] No game_process found. Aborting monitoring.`,
-      );
+      writeLog(`[GameMonitoring] No game_process found. Aborting monitoring.`);
       return null;
     }
     //遍历Leigod API获取的游戏信息，找到第一个game_process不为空的游戏信息
@@ -541,8 +538,7 @@ try {
       ) {
         //以IndexedDB中的免费信息为准
         if (GameInfo && item) {
-         writeLog(`[GameMonitoring] Overwriting API is_free (${item.is_free}) with Local is_free (${GameInfo.is_free})`);
-         item.is_free = GameInfo.is_free; // 不要问我为什么要这样莫名其妙，你去问问为什么雷神官方的is_free字段居然会不一样！！
+          item.is_free = GameInfo.is_free; // 不要问我为什么要这样莫名其妙，你去问问为什么雷神官方的is_free字段居然会不一样！！
         }
         GameInfo = item;
         writeLog(
@@ -562,14 +558,29 @@ try {
       // 检查窗口和参数
       return;
     }
+    let gameProcessList = [];
     try {
-      //优先从IndexedDB中获取游戏信息
+      if (CommunityGameDB[String(gameInfoArg.game_id)]) {
+        //先检查社区游戏数据库，防止雷神数据库中的进程名有假
+        //如果社区游戏数据库中有此游戏
+        gameProcessList = parseGameProcess(
+          CommunityGameDB[String(gameInfoArg.game_id)],
+        );
+        writeLog(
+          `[GameMonitoring] Parsed CommunityGameDB processes: ${JSON.stringify(
+            gameProcessList,
+          )}`,
+        );
+        MonitoringManager.start(gameProcessList);
+        return;
+      }
+      //如果社区数据库没有就尝试从IndexedDB和api中获取游戏信息
       let GameInfo = await getGameInfoStrategies(
         mainWindow,
         gameInfoArg.game_id,
       );
       //如果GameInfo 不为空
-      let gameProcessList = [];
+
       if (!GameInfo) {
         showStartupNotification(
           "获取游戏进程失败",
@@ -584,7 +595,10 @@ try {
         return;
       }
       /*判断是不是在排除项目，其次看看是不是免费加速的。如果是免费或者平台就不进入状态机*/
-      if (ExcludedGameIDs.includes(GameInfo.id) || GameInfo.is_free === "1") {
+      if (
+        ExcludedGameIDs.includes(GameInfo.game_id) ||
+        GameInfo.is_free === "1"
+      ) {
         showStartupNotification(
           "自动暂停已跳过",
           "检测到当前加速项属于平台或免费项，自动暂停功能已跳过，请务必留意加速时长。",
@@ -596,19 +610,7 @@ try {
         return;
       }
       //检查社区游戏数据库
-      if (CommunityGameDB[String(GameInfo.id)]) {
-        //先检查社区游戏数据库，防止雷神数据库中的进程名有假
-        //如果社区游戏数据库中有此游戏
-        gameProcessList = parseGameProcess(
-          CommunityGameDB[String(GameInfo.id)],
-        );
-        writeLog(
-          `[GameMonitoring] Parsed CommunityGameDB processes: ${JSON.stringify(
-            gameProcessList,
-          )}`,
-        );
-        MonitoringManager.start(gameProcessList);
-      } else if (GameInfo.game_process && GameInfo.game_process !== "") {
+      if (GameInfo.game_process && GameInfo.game_process !== "") {
         //进入雷神数据库获取游戏进程（我服了，雷神的进程库还有假的进程名，这个和写假注释一样可恶！他猫猫的）
         gameProcessList = parseGameProcess(GameInfo.game_process);
         writeLog(
@@ -617,6 +619,7 @@ try {
           )}`,
         );
         MonitoringManager.start(gameProcessList);
+        return;
       } else {
         showStartupNotification(
           "获取游戏进程失败",
@@ -628,6 +631,7 @@ try {
         );
         MonitoringManager.stop(true);
         updateUiState("MISSING");
+        return;
       }
     } catch (e) {
       writeLog(
