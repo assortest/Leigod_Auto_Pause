@@ -41,7 +41,7 @@ try {
     6546: "BlueArchive.exe", //蔚蓝档案
     8538:"Nioh3.exe",//仁王3
   };
-  const ExcludedGameIDs = [109, 437, 1544, 274, 1921, 1342, 860]; //steam epic 暴雪 育碧uplay eaapp  rockstar GOG
+  const ExcludedGameIDs = [109, 437, 1544, 274, 1921, 1342, 860,2529]; //steam epic 暴雪 育碧uplay eaapp  rockstar GOG 远程同乐
   const UI_STATES = {
     //监控中
     ACTIVE: {
