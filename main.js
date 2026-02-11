@@ -39,10 +39,10 @@ try {
     6985: "NBA2K26.exe", //NBA2k26
     1693: "EternalReturn.exe", //永恒轮回
     6546: "BlueArchive.exe", //蔚蓝档案
-    8538:"Nioh3.exe",//仁王3
-    230:"hl2.exe,tf_win64.exe,tf.exe",//军团要塞2
+    8538: "Nioh3.exe", //仁王3
+    230: "hl2.exe,tf_win64.exe,tf.exe", //军团要塞2
   };
-  const ExcludedGameIDs = [109, 437, 1544, 274, 1921, 1342, 860,2529]; //steam epic 暴雪 育碧uplay eaapp  rockstar GOG 远程同乐
+  const ExcludedGameIDs = [109, 437, 1544, 274, 1921, 1342, 860, 2529]; //steam epic 暴雪 育碧uplay eaapp  rockstar GOG 远程同乐
   const UI_STATES = {
     //监控中
     ACTIVE: {
@@ -493,7 +493,9 @@ try {
                         })(${game_id});return game;
                         })();`;
     try {
-      return await mainWindow.webContents.executeJavaScript(QueryScript);
+      const result = await mainWindow.webContents.executeJavaScript(QueryScript);
+      writeLog(`[fetchFromIndexedDB] Game info: ${JSON.stringify(result)}`);
+      return result;
     } catch (error) {
       writeLog(`[fetchFromIndexedDB] Error fetching game info: ${error}`);
       return null;
@@ -514,46 +516,49 @@ try {
   }
   //该函数用于获取游戏信息，优先从IndexedDB中获取，其次从Leigod API中获取
   async function getGameInfoStrategies(mainWindow, game_id) {
-    //先试图从IndexedDB中获取游戏信息
-    let GameInfo = await fetchFromIndexedDB(mainWindow, game_id);
-    writeLog(`[GameMonitoring] Game info: ${JSON.stringify(GameInfo)}`);
-    if (GameInfo && GameInfo.game_process && GameInfo.game_process !== "") {
-      writeLog(
-        `[GameMonitoring] Found game info in IndexedDB: ${JSON.stringify(
-          GameInfo,
-        )}`,
-      );
+    const [dbInfo, apiResult] = await Promise.all([ //同时拉取数据
+      fetchFromIndexedDB(mainWindow, game_id).catch((e) => {
+        writeLog(`[getGameInfoStrategies] DB Error: ${e}`);
+        return null;
+      }),
+      fetchFromLeigodAPI(mainWindow, game_id).catch((e) => {
+        writeLog(`[getGameInfoStrategies] API Error: ${e}`);
+        return [];
+      }),
+    ]);
 
-      return GameInfo;
+    let API_gameProcessInfo = null;
+
+    if (Array.isArray(apiResult) && apiResult.length > 0) {
+    // 找到第一个进程名不为空的 API 数据
+    API_gameProcessInfo = apiResult.find(item => 
+      item.game_process && item.game_process.trim() !== ""
+    );
+  }
+  //如果说有进程名优先以indexdb的is_free属性为准
+  if (API_gameProcessInfo) {
+    if (dbInfo&&dbInfo.is_free) { //如果说有is_free属性
+      API_gameProcessInfo.is_free = dbInfo.is_free;
     }
-    //如果IndexedDB中没有游戏信息，就从Leigod API中获取
-    const apiResult = await fetchFromLeigodAPI(mainWindow, game_id);
-    if (!apiResult || !Array.isArray(apiResult) || apiResult.length === 0) {
-      writeLog(`[GameMonitoring] No game_process found. Aborting monitoring.`);
-      return null;
-    }
-    //遍历Leigod API获取的游戏信息，找到第一个game_process不为空的游戏信息
-    for (let i = 0; i < apiResult.length; i++) {
-      const item = apiResult[i];
-      if (
-        item.game_process &&
-        item.game_process !== "" &&
-        item.game_process !== null
-      ) {
-        //以IndexedDB中的免费信息为准
-        if (GameInfo && item) {
-          item.is_free = GameInfo.is_free; // 不要问我为什么要这样莫名其妙，你去问问为什么雷神官方的is_free字段居然会不一样！！
-        }
-        GameInfo = item;
-        writeLog(
-          `[GameMonitoring] Found game info in Leigod API: ${JSON.stringify(
-            GameInfo,
-          )}`,
-        );
-        return GameInfo;
-      }
-    }
-    return null;
+    
+    writeLog(
+      `[getGameInfoStrategies] Using API info (with DB is_free patch): ${JSON.stringify(API_gameProcessInfo)}`
+    );
+    return API_gameProcessInfo;
+  }
+
+  //如果说api没有进程名 就用indexdb的进程名
+  if (dbInfo && dbInfo.game_process && dbInfo.game_process.trim() !== "") {
+    writeLog(
+      `[getGameInfoStrategies] API failed, fallback to IndexedDB info: ${JSON.stringify(dbInfo)}`
+    );
+    return dbInfo;
+  }
+
+  //如果说api和indexdb都没有进程名那就都没救了
+  writeLog("[getGameInfoStrategies] No game_process found in API or DB. Aborting.");
+  return null;
+
   }
 
   //该函数用于处理游戏进程为后续监控做准备
