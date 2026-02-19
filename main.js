@@ -425,6 +425,19 @@ try {
       return listener(event, ...args);
     };
   }
+  function interceptedOpenExternal(listener) {
+    return async (event, ...args) => {
+    //偷偷在External里拦截做通讯
+      if(args[0] === "leigod-plugin://interrupt"){
+        writeLog("[interceptedOpenExternal] Intercepted interrupt command via open-external!");
+        MonitoringManager.stop(true);
+        updateUiState("missing");
+        return;
+      }
+      const result = await listener(event, ...args);
+      return result;
+    };
+  }
 
   /*function interceptedRecoverUserTime(listener, channel) {
     return async (event, ...args) => {
@@ -434,6 +447,7 @@ try {
       return result;
     };
   }*/
+
 
   //该函数用于拦截分发
   function hookIpcHandle(channel, listener, originalIpcMainHandle) {
@@ -452,6 +466,10 @@ try {
       case "leigod-simplify-pause-user-time":
         newListener = interceptedStopAcc(listener, channel);
         break;
+      case "leigod-simplify-open-external":
+        newListener = interceptedOpenExternal(listener);
+        break;
+
       // case "leigod-simplify-recover-user-time": //讲真，虽然我不认为真的会有人就解除暂停不加速游戏但是还是处理一下吧
       //   newListener = interceptedRecoverUserTime(listener, channel);
       //   break;
@@ -711,12 +729,14 @@ try {
                           if(div.dataset.state==="missing")
                           { //先弹github的提交进程的说明页面把,看后续是否需要。
                           window.leigodSimplify.invoke("open-external", "https://github.com/assortest/Leigod_Auto_Pause?tab=readme-ov-file#-%E8%B4%A1%E7%8C%AE%E6%8C%87%E5%8D%97");
-                          }
-                        
+                          }else if(div.dataset.state==="counting")
+                          {
+                          leigodSimplify.invoke("open-external", "leigod-plugin://interrupt");
+                          } 
                         };
                         navControl.insertBefore(div, rechargeBtn);
                     }
-                    }, 500);`;
+                    }, 500);`
             try {
               window.webContents.executeJavaScript(script);
               // eslint-disable-next-line no-unused-vars
@@ -749,6 +769,13 @@ try {
         div.style.background=\`${cfg.bg}\`;
         txt.innerText=\`${displayText}\`; 
         div.dataset.state = \`${cfg.code}\`; //告诉悬停
+        if('${cfg.code}' === 'counting') {
+            div.title = "误判了？点击暂停倒计时，并上报真实进程";
+        } else if('${cfg.code}' === 'missing') {
+            div.title = "点击前往 GitHub 提交该游戏的进程名";
+        } else {
+            div.title = ""; 
+        }
     }
   })() `;
 
