@@ -29,7 +29,6 @@ try {
     5226: "PioneerGame.exe", //ARC Raiders
     7288: "Aion2.exe", //永恒之塔2
     114: "League of Legends.exe", //英雄联盟
-    931: "League of Legends.exe", //英雄联盟
     2661: "Discovery.exe,Discovery-d.exe,Discovery-e.exe", //THE FINALS
     6338: "F1_25.exe", //F1 25
     188: "Titanfall2.exe", //泰坦陨落2
@@ -42,6 +41,7 @@ try {
     8538: "Nioh3.exe", //仁王3
     230: "hl2.exe,tf_win64.exe,tf.exe", //军团要塞2
     5345: "FlightSimulator2024.exe", //微软飞行模拟2024
+    4684: "deadlock.exe", //死锁
   };
   const ExcludedGameIDs = [109, 437, 1544, 274, 1921, 1342, 860, 2529]; //steam epic 暴雪 育碧uplay eaapp  rockstar GOG 远程同乐
   const UI_STATES = {
