@@ -42,6 +42,7 @@ try {
     230: "hl2.exe,tf_win64.exe,tf.exe", //军团要塞2
     5345: "FlightSimulator2024.exe", //微软飞行模拟2024
     4684: "deadlock.exe", //死锁
+    8688:"John Carpenter's Toxic Commando.exe",//约翰·卡朋特的毒液突击队
   };
   const ExcludedGameIDs = [109, 437, 1544, 274, 1921, 1342, 860, 2529]; //steam epic 暴雪 育碧uplay eaapp  rockstar GOG 远程同乐
   const UI_STATES = {
@@ -158,7 +159,7 @@ try {
         writeLog("[Monitor] Process list is empty. Monitoring aborted.");
         return;
       }
-      this.targetProcesses = processList;
+      this.targetProcesses = processList.map(process => process.replace(/'/g, "\\'")); //处理特殊字符
       writeLog(`[Monitor] Set target processes to: ${this.targetProcesses}`);
       //检查初始状态
       this._checkProcessExists().then((isProcessRunning) => {
@@ -663,7 +664,7 @@ try {
       }
     } catch (e) {
       writeLog(
-        `[patchIpcMain] ERROR: Failed to call "get-game-info".\nError: ${e}`,
+        `[handleGameProcessMonitoring] ERROR: ${e}`,
       );
     }
   }
