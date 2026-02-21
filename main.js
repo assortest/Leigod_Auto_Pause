@@ -685,14 +685,14 @@ try {
             mainWindowCaptured = true;
             writeLog("[Monitor] Main Window registered.");
             const script = `const timer = setInterval(() => {
-                        const navControl = document.querySelector(".nav-control");
-                        const rechargeBtn = document.querySelector(".recharge-enrty");
-                        if (navControl && rechargeBtn) {
-                        clearInterval(timer);
-                        if (document.getElementById("leigod-monitor-Widget")) return;
-                        const div = document.createElement("div");
-                        div.id = "leigod-monitor-Widget";
-                        div.style.cssText = \`
+  const navControl = document.querySelector(".nav-control");
+  const rechargeBtn = document.querySelector(".recharge-enrty");
+  if (navControl && rechargeBtn) {
+    clearInterval(timer);
+    if (document.getElementById("leigod-monitor-Widget")) return;
+    const div = document.createElement("div");
+    div.id = "leigod-monitor-Widget";
+    div.style.cssText = \`
                         height: 24px; 
                         min-width: 90px; 
                         background: rgba(255,255,255,0.1); 
@@ -711,33 +711,95 @@ try {
                         user-select: none;
                         margin-right: 12px; 
                     \`;
-                        //设置状态为空闲
-                        div.dataset.state = "idle";
-                        div.innerHTML = '<span id="leigod-status-text">⚙️ 自动监控</span>';
-                        div.onmouseenter = () => {
-                        if (div.dataset.state === "missing") {
-                            div.style.background = "rgba(33, 150, 243, 0.4)";
-                            div.style.color = "#1a75c2";
-                        }
-                        };
-                        div.onmouseleave = () => {
-                        if (div.dataset.state === "missing") {
-                            div.style.background = "rgba(33, 150, 243, 0.1)";
-                            div.style.color = "#2196f3";
-                        }
-                        };
-                        div.onclick = () => {
-                          if(div.dataset.state==="missing")
-                          { //先弹github的提交进程的说明页面把,看后续是否需要。
-                          window.leigodSimplify.invoke("open-external", "https://github.com/assortest/Leigod_Auto_Pause?tab=readme-ov-file#-%E8%B4%A1%E7%8C%AE%E6%8C%87%E5%8D%97");
-                          }else if(div.dataset.state==="counting")
-                          {
-                          leigodSimplify.invoke("open-external", "leigod-plugin://interrupt");
-                          } 
-                        };
-                        navControl.insertBefore(div, rechargeBtn);
-                    }
-                    }, 500);`
+    //设置状态为空闲
+    div.dataset.state = "idle";
+    div.innerHTML = '<span id="leigod-status-text">⚙️ 自动监控</span>';
+    div.onmouseenter = () => {
+      if (div.dataset.state === "missing") {
+        div.style.background = "rgba(33, 150, 243, 0.4)";
+        div.style.color = "#1a75c2";
+      }
+    };
+    div.onmouseleave = () => {
+      if (div.dataset.state === "missing") {
+        div.style.background = "rgba(33, 150, 243, 0.1)";
+        div.style.color = "#2196f3";
+      }
+    };
+    div.onclick = () => {
+      if (div.dataset.state === "missing") {
+        //先弹github的提交进程的说明页面把,看后续是否需要。
+        window.leigodSimplify.invoke(
+          "open-external",
+          "https://github.com/assortest/Leigod_Auto_Pause?tab=readme-ov-file#-%E8%B4%A1%E7%8C%AE%E6%8C%87%E5%8D%97",
+        );
+      } else if (div.dataset.state === "counting") {
+        const modal = document.createElement("div");
+        modal.id = "leigod-confirm-modal";
+        modal.style.cssText = \`position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(0, 0, 0, 0.6);
+    z-index: 99999;
+    display: flex;
+    justify-content: center;
+    align-items: center;\`;
+        modal.innerHTML = \`<div
+  style="
+    background: #2b2b2b;
+    padding: 20px 30px;
+    border-radius: 8px;
+    color: #fff;
+    text-align: center;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  "
+>
+<h3 style="margin: 0 0 10px 0; font-size: 16px; font-weight: normal; color: #ff9800;">确认暂停倒计时？</h3>
+<p style="font-size: 13px; color: #aaa; margin: 0 0 20px 0; line-height: 1.5; text-align: left;">
+                  如果您在游戏中但是倒计时仍在进行，则说明 API 提供的进程名不准确。<br>
+                  点击确认暂停，再点击提交进程可以提交真实的进程名以优化数据库。
+              </p>
+              <div style="display: flex;         
+justify-content: space-around;" >
+<button id="leigod-btn-cancel"
+ style="background:#444;
+ border:none; 
+ color:#ccc;
+ padding:6px 20px;
+ border-radius: 4px; 
+ cursor: pointer;
+ "
+ >我只是误触了</button>
+<button id="leigod-btn-confirm"
+style="background:#ff9800;
+ border:none; 
+ color:#fff;
+ padding:6px 20px;
+ border-radius: 4px; 
+ cursor: pointer;
+ " >确认暂停</button>
+</div>
+</div>
+\`;
+
+        document.body.appendChild(modal); //把内容插入
+
+        //开始处理按键响应
+        document.getElementById("leigod-btn-cancel").onclick = () => {
+          modal.remove();
+        };
+        document.getElementById("leigod-btn-confirm").onclick = () => {
+          modal.remove();
+          leigodSimplify.invoke("open-external", "leigod-plugin://interrupt");
+        };
+      }
+    };
+    navControl.insertBefore(div, rechargeBtn);
+  }
+}, 500);`
+
             try {
               window.webContents.executeJavaScript(script);
               // eslint-disable-next-line no-unused-vars
