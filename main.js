@@ -43,7 +43,7 @@ try {
     5345: "FlightSimulator2024.exe", //微软飞行模拟2024
     4684: "deadlock.exe", //死锁
     8688: "John Carpenter's Toxic Commando.exe", //约翰·卡朋特的毒液突击队
-    3219: "Adobe Crash Processor.exe,Adobe Desktop Service.exe,AdobelPCBroker.exe,AdobeNotificationClient.exe,AdobeUpdateService.exe,CCXProcess.exe,CoreSync.exe,Creative Cloud Helper.exe,Photoshop.exe"
+    3219: "Photoshop.exe,Lightroom.exe", //Photoshop Beta AI
   };
   const ExcludedGameIDs = [109, 437, 1544, 274, 1921, 1342, 860, 2529]; //steam epic 暴雪 育碧uplay eaapp  rockstar GOG 远程同乐
   const UI_STATES = {
