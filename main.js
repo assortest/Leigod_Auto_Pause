@@ -42,7 +42,8 @@ try {
     230: "hl2.exe,tf_win64.exe,tf.exe", //军团要塞2
     5345: "FlightSimulator2024.exe", //微软飞行模拟2024
     4684: "deadlock.exe", //死锁
-    8688:"John Carpenter's Toxic Commando.exe",//约翰·卡朋特的毒液突击队
+    8688: "John Carpenter's Toxic Commando.exe", //约翰·卡朋特的毒液突击队
+    3219: "Adobe Crash Processor.exe,Adobe Desktop Service.exe,AdobelPCBroker.exe,AdobeNotificationClient.exe,AdobeUpdateService.exe,CCXProcess.exe,CoreSync.exe,Creative Cloud Helper.exe,Photoshop.exe"
   };
   const ExcludedGameIDs = [109, 437, 1544, 274, 1921, 1342, 860, 2529]; //steam epic 暴雪 育碧uplay eaapp  rockstar GOG 远程同乐
   const UI_STATES = {
@@ -147,6 +148,9 @@ try {
     graceCheckIntervalId: null, //宽限期id
     countdownIntervalId: null, //倒计时id
 
+    /**
+     * @param {string[]} processList
+     */
     start: function (processList) {
       writeLog(
         `[Monitor] Received start command for: ${processList.join(", ")}`,
@@ -159,7 +163,9 @@ try {
         writeLog("[Monitor] Process list is empty. Monitoring aborted.");
         return;
       }
-      this.targetProcesses = processList.map(process => process.replace(/'/g, "\\'")); //处理特殊字符
+      this.targetProcesses = processList.map((process) =>
+        process.replace(/'/g, "\\'"),
+      ); //处理特殊字符
       writeLog(`[Monitor] Set target processes to: ${this.targetProcesses}`);
       //检查初始状态
       this._checkProcessExists().then((isProcessRunning) => {
@@ -428,9 +434,11 @@ try {
   }
   function interceptedOpenExternal(listener) {
     return async (event, ...args) => {
-    //偷偷在External里拦截做通讯
-      if(args[0] === "leigod-plugin://interrupt"){
-        writeLog("[interceptedOpenExternal] Intercepted interrupt command via open-external!");
+      //偷偷在External里拦截做通讯
+      if (args[0] === "leigod-plugin://interrupt") {
+        writeLog(
+          "[interceptedOpenExternal] Intercepted interrupt command via open-external!",
+        );
         MonitoringManager.stop(true);
         updateUiState("missing");
         return;
@@ -448,7 +456,6 @@ try {
       return result;
     };
   }*/
-
 
   //该函数用于拦截分发
   function hookIpcHandle(channel, listener, originalIpcMainHandle) {
@@ -513,7 +520,8 @@ try {
                         })(${game_id});return game;
                         })();`;
     try {
-      const result = await mainWindow.webContents.executeJavaScript(QueryScript);
+      const result =
+        await mainWindow.webContents.executeJavaScript(QueryScript);
       writeLog(`[fetchFromIndexedDB] Game info: ${JSON.stringify(result)}`);
       return result;
     } catch (error) {
@@ -536,7 +544,8 @@ try {
   }
   //该函数用于获取游戏信息，优先从IndexedDB中获取，其次从Leigod API中获取
   async function getGameInfoStrategies(mainWindow, game_id) {
-    const [dbInfo, apiResult] = await Promise.all([ //同时拉取数据
+    const [dbInfo, apiResult] = await Promise.all([
+      //同时拉取数据
       fetchFromIndexedDB(mainWindow, game_id).catch((e) => {
         writeLog(`[getGameInfoStrategies] DB Error: ${e}`);
         return null;
@@ -550,35 +559,37 @@ try {
     let API_gameProcessInfo = null;
 
     if (Array.isArray(apiResult) && apiResult.length > 0) {
-    // 找到第一个进程名不为空的 API 数据
-    API_gameProcessInfo = apiResult.find(item => 
-      item.game_process && item.game_process.trim() !== ""
-    );
-  }
-  //如果说有进程名优先以indexdb的is_free属性为准
-  if (API_gameProcessInfo) {
-    if (dbInfo&&dbInfo.is_free) { //如果说有is_free属性
-      API_gameProcessInfo.is_free = dbInfo.is_free;
+      // 找到第一个进程名不为空的 API 数据
+      API_gameProcessInfo = apiResult.find(
+        (item) => item.game_process && item.game_process.trim() !== "",
+      );
     }
-    
+    //如果说有进程名优先以indexdb的is_free属性为准
+    if (API_gameProcessInfo) {
+      if (dbInfo && dbInfo.is_free) {
+        //如果说有is_free属性
+        API_gameProcessInfo.is_free = dbInfo.is_free;
+      }
+
+      writeLog(
+        `[getGameInfoStrategies] Using API info (with DB is_free patch): ${JSON.stringify(API_gameProcessInfo)}`,
+      );
+      return API_gameProcessInfo;
+    }
+
+    //如果说api没有进程名 就用indexdb的进程名
+    if (dbInfo && dbInfo.game_process && dbInfo.game_process.trim() !== "") {
+      writeLog(
+        `[getGameInfoStrategies] API failed, fallback to IndexedDB info: ${JSON.stringify(dbInfo)}`,
+      );
+      return dbInfo;
+    }
+
+    //如果说api和indexdb都没有进程名那就都没救了
     writeLog(
-      `[getGameInfoStrategies] Using API info (with DB is_free patch): ${JSON.stringify(API_gameProcessInfo)}`
+      "[getGameInfoStrategies] No game_process found in API or DB. Aborting.",
     );
-    return API_gameProcessInfo;
-  }
-
-  //如果说api没有进程名 就用indexdb的进程名
-  if (dbInfo && dbInfo.game_process && dbInfo.game_process.trim() !== "") {
-    writeLog(
-      `[getGameInfoStrategies] API failed, fallback to IndexedDB info: ${JSON.stringify(dbInfo)}`
-    );
-    return dbInfo;
-  }
-
-  //如果说api和indexdb都没有进程名那就都没救了
-  writeLog("[getGameInfoStrategies] No game_process found in API or DB. Aborting.");
-  return null;
-
+    return null;
   }
 
   //该函数用于处理游戏进程为后续监控做准备
@@ -663,9 +674,7 @@ try {
         return;
       }
     } catch (e) {
-      writeLog(
-        `[handleGameProcessMonitoring] ERROR: ${e}`,
-      );
+      writeLog(`[handleGameProcessMonitoring] ERROR: ${e}`);
     }
   }
 
@@ -798,7 +807,7 @@ style="background:#ff9800;
     };
     navControl.insertBefore(div, rechargeBtn);
   }
-}, 500);`
+}, 500);`;
 
             try {
               window.webContents.executeJavaScript(script);
