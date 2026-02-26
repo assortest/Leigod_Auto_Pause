@@ -22,8 +22,6 @@ try {
   */
   const CommunityGameDB = {
     1559: "VALORANT-Win64-Shipping.exe", //无畏契约
-    // 2167: "Warframe.x64.exe", //星际战甲
-    // 258: "Warframe.x64.exe", //星际战甲
     137: "vermintide2_dx12.exe,vermintide2.exe", //末世鼠疫2
     254: "EscapeFromTarkov.exe", //逃离塔科夫
     5226: "PioneerGame.exe", //ARC Raiders
@@ -39,11 +37,12 @@ try {
     1693: "EternalReturn.exe", //永恒轮回
     6546: "BlueArchive.exe", //蔚蓝档案
     8538: "Nioh3.exe", //仁王3
-    230: "hl2.exe,tf_win64.exe,tf.exe", //军团要塞2
+    230 : "hl2.exe,tf_win64.exe,tf.exe", //军团要塞2
     5345: "FlightSimulator2024.exe", //微软飞行模拟2024
     4684: "deadlock.exe", //死锁
     8688: "John Carpenter's Toxic Commando.exe", //约翰·卡朋特的毒液突击队
     3219: "Photoshop.exe,Lightroom.exe", //Photoshop Beta AI
+    6536: "PEAK.exe"//PEAK
   };
   const ExcludedGameIDs = [109, 437, 1544, 274, 1921, 1342, 860, 2529]; //steam epic 暴雪 育碧uplay eaapp  rockstar GOG 远程同乐
   const UI_STATES = {
