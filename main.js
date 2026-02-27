@@ -42,7 +42,8 @@ try {
     4684: "deadlock.exe", //死锁
     8688: "John Carpenter's Toxic Commando.exe", //约翰·卡朋特的毒液突击队
     3219: "Photoshop.exe,Lightroom.exe", //Photoshop Beta AI
-    6536: "PEAK.exe"//PEAK
+    6536: "PEAK.exe",//PEAK
+    6129: "Marathon.exe",//失落星船：马拉松
   };
   const ExcludedGameIDs = [109, 437, 1544, 274, 1921, 1342, 860, 2529]; //steam epic 暴雪 育碧uplay eaapp  rockstar GOG 远程同乐
   const UI_STATES = {
