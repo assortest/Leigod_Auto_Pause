@@ -37,13 +37,13 @@ try {
     1693: "EternalReturn.exe", //永恒轮回
     6546: "BlueArchive.exe", //蔚蓝档案
     8538: "Nioh3.exe", //仁王3
-    230 : "hl2.exe,tf_win64.exe,tf.exe", //军团要塞2
+    230: "hl2.exe,tf_win64.exe,tf.exe", //军团要塞2
     5345: "FlightSimulator2024.exe", //微软飞行模拟2024
     4684: "deadlock.exe", //死锁
     8688: "John Carpenter's Toxic Commando.exe", //约翰·卡朋特的毒液突击队
     3219: "Photoshop.exe,Lightroom.exe", //Photoshop Beta AI
-    6536: "PEAK.exe",//PEAK
-    6129: "Marathon.exe",//失落星船：马拉松
+    6536: "PEAK.exe", //PEAK
+    6129: "Marathon.exe", //失落星船：马拉松
   };
   const ExcludedGameIDs = [109, 437, 1544, 274, 1921, 1342, 860, 2529]; //steam epic 暴雪 育碧uplay eaapp  rockstar GOG 远程同乐
   const UI_STATES = {
@@ -147,15 +147,20 @@ try {
     monitorIntervalId: null, //监控状态
     graceCheckIntervalId: null, //宽限期id
     countdownIntervalId: null, //倒计时id
-
+    isMonitoring: 0, //是否正在监控
     /**
      * @param {string[]} processList
      */
-    start: function (processList) {
+    start: async function (processList) {
       writeLog(
         `[Monitor] Received start command for: ${processList.join(", ")}`,
       );
-
+      this.isMonitoring++; //防止多次点击触发
+      if (this.isMonitoring > 1) {
+        writeLog("[Monitor] Already monitoring. Ignoring duplicate start command.");
+        this.isMonitoring--;
+        return;
+      }
       this.stop(false); //清理掉所有定时器
       if (!processList || processList.length === 0) {
         //如果ProcessList是空的就返回
@@ -168,20 +173,17 @@ try {
       ); //处理特殊字符
       writeLog(`[Monitor] Set target processes to: ${this.targetProcesses}`);
       //检查初始状态
-      this._checkProcessExists().then((isProcessRunning) => {
-        if (isProcessRunning) {
-          //如果进程正在运行
-          writeLog(
-            "[Monitor] Game is already running. Entering active monitoring state.",
-          );
-          this._enterActiveMonitoringState();
-        } else {
-          writeLog(
-            "[Monitor] Game is not running. Entering grace period state.",
-          );
-          this._enterGracePeriodState();
-        }
-      });
+      const isProcessRunning = await this._checkProcessExists();
+      if (isProcessRunning) {
+        //如果进程正在运行
+        writeLog(
+          "[Monitor] Game is already running. Entering active monitoring state.",
+        );
+        this._enterActiveMonitoringState();
+      } else {
+        writeLog("[Monitor] Game is not running. Entering grace period state.");
+        this._enterGracePeriodState();
+      }
     },
     stop: function (clearList = true) {
       writeLog("[Monitor] Stop command received. Clearing all timers.");
@@ -192,6 +194,7 @@ try {
 
       if (clearList) {
         updateUiState("IDLE");
+        this.isMonitoring--;
         this.targetProcesses = [];
       }
       this.monitorIntervalId = null;
