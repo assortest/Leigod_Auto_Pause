@@ -147,20 +147,24 @@ try {
     monitorIntervalId: null, //监控状态
     graceCheckIntervalId: null, //宽限期id
     countdownIntervalId: null, //倒计时id
-    isMonitoring: 0, //是否正在监控
+    _startDebounceTimer: null, //是否正在监控
     /**
      * @param {string[]} processList
      */
     start: async function (processList) {
+      if (this._startDebounceTimer) {
+        //增加防抖
+        writeLog(
+          "[Monitor] Already starting. Ignoring duplicate start command.",
+        );
+        return;
+      }
+      this._startDebounceTimer = setTimeout(() => {
+        this._startDebounceTimer = null;
+      }, 2000);
       writeLog(
         `[Monitor] Received start command for: ${processList.join(", ")}`,
       );
-      this.isMonitoring++; //防止多次点击触发
-      if (this.isMonitoring > 1) {
-        writeLog("[Monitor] Already monitoring. Ignoring duplicate start command.");
-        this.isMonitoring--;
-        return;
-      }
       this.stop(false); //清理掉所有定时器
       if (!processList || processList.length === 0) {
         //如果ProcessList是空的就返回
@@ -194,7 +198,6 @@ try {
 
       if (clearList) {
         updateUiState("IDLE");
-        this.isMonitoring--;
         this.targetProcesses = [];
       }
       this.monitorIntervalId = null;
