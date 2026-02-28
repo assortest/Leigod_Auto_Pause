@@ -148,6 +148,7 @@ try {
     graceCheckIntervalId: null, //宽限期id
     countdownIntervalId: null, //倒计时id
     _startDebounceTimer: null, //是否正在监控
+    _generation: 0, //防止重复
     /**
      * @param {string[]} processList
      */
@@ -198,7 +199,12 @@ try {
 
       if (clearList) {
         updateUiState("IDLE");
+        this._generation++;
         this.targetProcesses = [];
+        if (this._startDebounceTimer) {
+          clearTimeout(this._startDebounceTimer);
+          this._startDebounceTimer = null;
+        }
       }
       this.monitorIntervalId = null;
       this.graceCheckIntervalId = null;
@@ -395,7 +401,7 @@ try {
           2,
         )}`,
       );
-
+      const gen = MonitoringManager._generation;
       const result = await listener(event, ...args);
       writeLog(
         ` [patchIpcMain] "result" intercepted!\nInitial Data:\n${JSON.stringify(
@@ -406,6 +412,13 @@ try {
       );
 
       if (result && result.error && result.error.message.code === 10007) {
+        return result;
+      }
+      if (gen !== MonitoringManager._generation) {
+        writeLog(
+          //防止有神人在加速器在拉取信息的时候突然点击暂停
+          "[interceptedStartAcc] Generation changed. Ignoring this result.",
+        );
         return result;
       }
 
