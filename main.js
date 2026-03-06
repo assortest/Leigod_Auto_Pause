@@ -26,7 +26,7 @@ try {
     254: "EscapeFromTarkov.exe", //逃离塔科夫
     5226: "PioneerGame.exe", //ARC Raiders
     7288: "Aion2.exe", //永恒之塔2
-    114: "League of Legends.exe", //英雄联盟
+    //114: "League of Legends.exe", //英雄联盟
     2661: "Discovery.exe,Discovery-d.exe,Discovery-e.exe", //THE FINALS
     6338: "F1_25.exe", //F1 25
     188: "Titanfall2.exe", //泰坦陨落2
@@ -588,6 +588,10 @@ try {
       if (dbInfo && dbInfo.is_free) {
         //如果说有is_free属性
         API_gameProcessInfo.is_free = dbInfo.is_free;
+      }
+      if (dbInfo && dbInfo.is_free == "1") {
+        //如果是免费游戏就没必要拿拿进程了
+        return dbInfo;
       }
 
       writeLog(
