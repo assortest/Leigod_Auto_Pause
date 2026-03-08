@@ -14,3 +14,7 @@ obj/
 # IDE settings
 .idea/
 .vscode/
+
+artifacts/
+
+temp.md

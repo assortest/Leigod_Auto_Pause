@@ -36,10 +36,10 @@
 
 1. **下载启动器**
    
-   * 从 [Releases页面](https://github.com/assortest/Leigod_Auto_Pause/releases) 下载最新版 `Leigod_Auto_Pause.exe`
+   * 从 [Releases页面](https://github.com/assortest/Leigod_Auto_Pause/releases) 下载最新版单文件 `Leigod_Auto_Pause.exe`
 2. **首次运行**
    
-   * 双击 `Leigod_Auto_Pause.exe`
+   * 双击发布页下载得到的 `Leigod_Auto_Pause.exe`
    * 程序会自动定位雷神安装目录，并将自己复制到正确位置
    * 程序会自动创建桌面快捷方式 **“雷神自动暂停”**
 3. **后续启动**

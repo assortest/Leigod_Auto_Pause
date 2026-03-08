@@ -2,21 +2,26 @@
 
 ## Formatting
 
-本项目现在以根目录的 [`.editorconfig`](/x:/code/Leigod_Auto_Pause/.editorconfig) 作为统一格式协议，供 `dotnet format`、Visual Studio、Rider 这类 fmt 工具读取。
+Use the repository `.editorconfig` as the single formatting contract for `dotnet format`, Visual Studio, and Rider.
 
-当前约定很简单：
+- Repository text files use `utf-8` with `CRLF`.
+- C# uses 4-space indentation and braces on new lines.
+- `main.js` keeps 2-space indentation.
+- Markdown keeps trailing spaces when they are meaningful for layout.
 
-- 全仓库统一 `utf-8`、`CRLF`、文件末尾保留换行
-- `C#` 使用 4 空格缩进，花括号换行，`using` 里 `System.*` 优先
-- `main.js` 保持 2 空格缩进
-- `Markdown` 不强制裁剪行尾空格，避免列表/排版被误伤
-
-## Recommended Command
-
-优先使用这个命令做格式化：
+Recommended formatting command:
 
 ```powershell
 dotnet format src/Leigod_Auto_Pause.sln --no-restore
 ```
 
-如果只想格式化某个文件，优先让 IDE 按 `.editorconfig` 规则执行，不要手工混入另一套风格。
+## Release Build
+
+Do not validate installer behavior from `bin/Release/net8.0` or any test output directory.
+Installer validation must use the published self-contained single-file artifact so the executable shape matches the official release.
+
+Recommended publish command:
+
+```powershell
+dotnet publish src/Leigod_Auto_Pause/Leigod_Auto_Pause.csproj /p:PublishProfile=ReleaseSingleFile -o artifacts/publish/single-file
+```

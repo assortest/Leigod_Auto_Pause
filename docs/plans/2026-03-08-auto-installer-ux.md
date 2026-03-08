@@ -8,6 +8,8 @@
 
 **Tech Stack:** C#/.NET 8 WinExe, existing `AsarSharp`, Windows registry/process/path discovery, Windows desktop shortcut creation via COM (`WScript.Shell`) behind a testable abstraction, xUnit test project.
 
+> Note after investigation: this UX only works correctly when the distributed launcher is a true single-file release artifact. Validating copy-only behavior against `bin/Release/net8.0` or test output is invalid because those directories contain sidecar runtime files.
+
 ---
 
 ### Task 1: Create a testable bootstrap model
