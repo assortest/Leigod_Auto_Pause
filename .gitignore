@@ -1,0 +1,16 @@
+.VSCodeCounter/
+
+# .NET build outputs
+bin/
+obj/
+
+# Visual Studio / Rider local files
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# IDE settings
+.idea/
+.vscode/
