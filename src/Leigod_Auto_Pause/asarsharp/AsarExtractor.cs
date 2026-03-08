@@ -198,7 +198,8 @@ namespace AsarSharp
                 _archiveFileStream.Read(fileDataBuffer, offset: 0, count: currentFileSize);
 
                 fileStream.Write(fileDataBuffer);
-            };
+            }
+            ;
         }
 
         /**

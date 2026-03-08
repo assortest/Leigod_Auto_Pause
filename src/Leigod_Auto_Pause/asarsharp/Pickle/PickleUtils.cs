@@ -1,7 +1,7 @@
 ﻿
 namespace AsarSharp
 {
- class PickleUtils
+    class PickleUtils
     {
         // sizeof(T).
         public const ushort SIZE_INT32 = 4;

@@ -19,7 +19,7 @@
              * <summary>List of globs for file names to exclude from packing.</summary>
              */
             public string[] Unpack { get; init; } = null;
-    
+
             // public string[] UnpackDir { get; init; } = null;
         }
     }

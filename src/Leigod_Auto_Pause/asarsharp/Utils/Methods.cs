@@ -36,7 +36,7 @@ namespace AsarSharp.Utils
         public static void CopyDirectory(string directoryToCopy, string whereToCopyDirectory)
         {
             Directory.CreateDirectory(whereToCopyDirectory);
-         
+
             foreach (string filePath in Directory.EnumerateFiles(directoryToCopy))
             {
                 string filePathInNewDirectory = Path.Combine(whereToCopyDirectory, Path.GetFileName(filePath));
@@ -46,9 +46,9 @@ namespace AsarSharp.Utils
             foreach (string directoryPath in Directory.EnumerateDirectories(directoryToCopy))
             {
                 string dirPathInNewDirectory = Path.Combine(whereToCopyDirectory, Path.GetFileName(directoryPath));
-                CopyDirectory(directoryPath, dirPathInNewDirectory);    
+                CopyDirectory(directoryPath, dirPathInNewDirectory);
             }
-                        
+
         }
     }
 }

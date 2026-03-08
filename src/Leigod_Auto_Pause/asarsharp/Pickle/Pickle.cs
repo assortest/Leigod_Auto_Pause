@@ -90,7 +90,7 @@ namespace AsarSharp
         {
             return WriteBytes(value, PickleUtils.SIZE_INT32, WriteMethod);
         }
-        
+
 
         public bool WriteUInt32(uint value)
         {
@@ -136,7 +136,7 @@ namespace AsarSharp
         public void SetPayloadSize(uint newSize)
         {
             byte[] newSizeBytes = BitConverter.GetBytes(newSize);
-            Buffer.BlockCopy(src: newSizeBytes, srcOffset: 0, dst: Header, dstOffset: 0, count: newSizeBytes.Length); 
+            Buffer.BlockCopy(src: newSizeBytes, srcOffset: 0, dst: Header, dstOffset: 0, count: newSizeBytes.Length);
         }
 
         public bool WriteBytes(dynamic data, uint length, Action<dynamic, uint> writeMethod = null)
@@ -161,7 +161,7 @@ namespace AsarSharp
                 else
                     Buffer.BlockCopy(src: data, srcOffset: 0, dst: Header, dstOffset: (int)writeOffset, count: (int)length);
             }
-            
+
             Array.Fill<byte>(Header, value: 0, startIndex: (int)endOffset, count: (int)(dataLength - length));
 
             SetPayloadSize(newSize);

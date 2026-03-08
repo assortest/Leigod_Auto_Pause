@@ -24,7 +24,7 @@ namespace SettingManager
 
         public static AppSettings? Load()
         {
-           
+
             if (!File.Exists(_settingsFilePath)) return null;
 
             //读取配置文件内容
@@ -36,7 +36,7 @@ namespace SettingManager
             }
             catch
             {
-             
+
                 return null;
             }
 
@@ -46,7 +46,7 @@ namespace SettingManager
         {
 
             Directory.CreateDirectory(_configFolderPath);
-          
+
             string json = JsonSerializer.Serialize(settings, _serializerOptions);
             File.WriteAllText(_settingsFilePath, json);
 
@@ -57,5 +57,5 @@ namespace SettingManager
         public string PatchedAsarHash { get; set; } = string.Empty;
         public string AppliedJsHash { get; set; } = string.Empty;
     }
-    
+
 }
