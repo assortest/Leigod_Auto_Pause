@@ -30,7 +30,7 @@ jobs:
         run: dotnet test tests/Leigod_Auto_Pause.Tests/Leigod_Auto_Pause.Tests.csproj -c Release --no-build -v minimal
 
       - name: Publish
-        run: dotnet publish src/Leigod_Auto_Pause/Leigod_Auto_Pause.csproj -c Release /p:PublishProfile=ReleaseSingleFile -o artifacts/publish/single-file --no-build -v minimal
+        run: dotnet publish src/Leigod_Auto_Pause/Leigod_Auto_Pause.csproj -c Release /p:PublishProfile=ReleaseSingleFile -o artifacts/publish/single-file -v minimal
 
       - name: Upload release artifact
         uses: actions/upload-artifact@v4
