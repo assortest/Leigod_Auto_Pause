@@ -45,6 +45,7 @@ try {
     6536: "PEAK.exe", //PEAK
     6129: "Marathon.exe", //失落星船：马拉松
     3424: "forza_steamworks_release_final.exe", //Forza Motorsport
+    192: "Adjust.exe,javaw.exe,usched.exe,java.exe", //我的世界
   };
   const ExcludedGameIDs = [109, 437, 1544, 274, 1921, 1342, 860, 2529]; //steam epic 暴雪 育碧uplay eaapp  rockstar GOG 远程同乐
   const UI_STATES = {
