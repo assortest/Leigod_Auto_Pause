@@ -80,10 +80,11 @@ try {
   };
   //========== 模块引入 ==========
   const { app, ipcMain, Notification } = require("electron"); // 结构引入 Electron 使用的模块
-  const { exec, spawn } = require("child_process");
+  const { spawn } = require("child_process");
   const path = require("path"); //用于处理路径
   const fs = require("fs"); //用于文件操作
   const userDataPath = app.getPath("userData");
+  const win32Addon = require("@leigod-rs/win32-node-addon"); //拿到雷神提供的API用于检测进程是否运行
   const logFilePath = path.join(userDataPath, "leigod_Monitor_log.txt"); //和文件名拼接成完整的路径
 
   // ========== 工具函数 ==========
@@ -123,10 +124,12 @@ try {
     return `${m}:${s}`;
   }
   //该函数用于显示通知
-  function showStartupNotification(title, body, silent = true) {
-    // 仅在 Windows 平台上显示通知
-    if (process.platform !== "win32") return;
-
+  function showStartupNotification(
+    title,
+    body,
+    silent = true,
+    autoCloseMs = 5000,
+  ) {
     try {
       const notice = new Notification({
         title: title,
@@ -134,6 +137,12 @@ try {
         silent: silent,
       });
       notice.show();
+      // 定时自动关闭通知，防止堆积在 Windows 通知中心（Action Center）
+      if (autoCloseMs > 0) {
+        setTimeout(() => {
+          notice.close();
+        }, autoCloseMs);
+      }
       writeLog(
         `[Notification] Displayed: "${title}" - "${body}" (silent: ${silent})`,
       );
@@ -176,9 +185,7 @@ try {
         writeLog("[Monitor] Process list is empty. Monitoring aborted.");
         return;
       }
-      this.targetProcesses = processList.map((process) =>
-        process.replace(/'/g, "\\'"),
-      ); //处理特殊字符
+      this.targetProcesses = processList;
       writeLog(`[Monitor] Set target processes to: ${this.targetProcesses}`);
       //检查初始状态
       const isProcessRunning = await this._checkProcessExists();
@@ -220,46 +227,26 @@ try {
           resolve(false);
           return;
         }
-
-        const checkProcess = (target) => {
-          //该方法用于调用系统命令 将结果返回
-          if (!target) return Promise.resolve(false);
-
-          return new Promise((pResolve) => {
-            const command = `tasklist /FI "IMAGENAME eq ${target.trim()}"`;
-            exec(command, (error, stdout) => {
-              if (error) {
-                pResolve(false);
-                return;
-              }
-              const lines = stdout.trim().split("\n"); //处理空格和回车符
-              pResolve(lines.length > 2); //判断进程是否存在
-            });
-          });
-        };
-        Promise.all(this.targetProcesses.map(checkProcess))
-          .then((results) => {
-            //该方法将得到的结果检查如果有进程在就返回true
-            const anyRunning = results.includes(true); //检查进程如果有进程运行就返回true
-            if (anyRunning) {
-              writeLog(
-                `[Monitor] Found at least one running process. Results: ${JSON.stringify(
-                  results,
-                )}`,
-              );
-            } else {
-              writeLog(
-                `[Monitor] No target processes found running. Results: ${JSON.stringify(
-                  results,
-                )}`,
-              );
+        try {
+          // 遍历所有需要监控的游戏进程名
+          for (let target of this.targetProcesses) {
+            target = target.trim();
+            if (!target) continue;
+            //直接雷神暴露的 API，第二个参数为什么是空你问我我也不知道
+            const isRunning = win32Addon.isProcessRunning(target, "");
+            if (isRunning) {
+              // 只要查到一个在跑，立刻判定为游戏运行中
+              resolve(true);
+              return;
             }
-            resolve(anyRunning);
-          })
-          .catch((error) => {
-            writeLog(`[Monitor] Error occurred during process check: ${error}`);
-            resolve(false);
-          });
+          }
+          // 如果全扫完了都没在跑
+          resolve(false);
+        } catch (error) {
+          writeLog(`[Monitor]API call failed: ${error.message}`);
+          //如果报错了，默认返回 false
+          resolve(false);
+        }
       });
     },
 
@@ -277,7 +264,8 @@ try {
             this._enterGracePeriodState();
           }
         });
-      }, 10000);
+      }, 2000);
+      writeLog("[Monitor] Active monitoring started.");
     },
 
     _enterGracePeriodState() {
@@ -315,7 +303,8 @@ try {
                     "等待期已过",
                     "正在暂停加速器",
                     false,
-                  );
+                    0,
+                  ); //这里设置成为无需关闭的原因是因为用户可能不在电脑前回来后需要在通知栏看到"你的加速已被暂停"，而其他的通知（比如加载成功）都是即时性的，看一眼就够了。
                   await mainWindow.webContents.executeJavaScript(
                     'window.leigodSimplify.invoke("stop-acc",{"reason": "other"})',
                   );
@@ -343,11 +332,11 @@ try {
             lastTimeStr = currentTime;
           }
         }
-      }, 100);
+      }, 500);
 
       //设置轮询检查游戏是否重新启动 启动的话就进入_enterActiveMonitoringState
       this.graceCheckIntervalId = setInterval(() => {
-        //每5秒检查一次如果启动了就吧宽恕期的定时器处理掉然后重新加入活动模式
+        //每1秒检查一次如果启动了就吧宽恕期的定时器处理掉然后重新加入活动模式
         this._checkProcessExists().then((isProcessRunning) => {
           if (isProcessRunning) {
             writeLog(
@@ -357,7 +346,8 @@ try {
             this._enterActiveMonitoringState();
           }
         });
-      }, 5000);
+      }, 1000);
+      writeLog("[Monitor] Grace period started.");
     },
   };
 
@@ -564,7 +554,7 @@ try {
       return null;
     }
   }
-  //该函数用于获取游戏信息，优先从IndexedDB中获取，其次从Leigod API中获取
+  //该函数用于获取游戏信息，同时从IndexedDB以及Leigod API中中获取，然后优先判断Leigod API中是否有进程IndexedDB作为兜底
   async function getGameInfoStrategies(mainWindow, game_id) {
     const [dbInfo, apiResult] = await Promise.all([
       //同时拉取数据
@@ -577,6 +567,10 @@ try {
         return [];
       }),
     ]);
+    if (dbInfo && dbInfo.is_free === "1") {
+      //如果是免费游戏就没必要拿拿进程了
+      return dbInfo;
+    }
 
     let API_gameProcessInfo = null;
 
@@ -586,19 +580,10 @@ try {
         (item) => item.game_process && item.game_process.trim() !== "",
       );
     }
-    //如果说有进程名优先以indexdb的is_free属性为准
-    if (API_gameProcessInfo) {
-      if (dbInfo && dbInfo.is_free) {
-        //如果说有is_free属性
-        API_gameProcessInfo.is_free = dbInfo.is_free;
-      }
-      if (dbInfo && dbInfo.is_free == "1") {
-        //如果是免费游戏就没必要拿拿进程了
-        return dbInfo;
-      }
 
+    if (API_gameProcessInfo) {
       writeLog(
-        `[getGameInfoStrategies] Using API info (with DB is_free patch): ${JSON.stringify(API_gameProcessInfo)}`,
+        `[getGameInfoStrategies] Using API info: ${JSON.stringify(API_gameProcessInfo)}`,
       );
       return API_gameProcessInfo;
     }
@@ -627,8 +612,7 @@ try {
     let gameProcessList = [];
     try {
       if (CommunityGameDB[String(gameInfoArg.game_id)]) {
-        //先检查社区游戏数据库，防止雷神数据库中的进程名有假
-        //如果社区游戏数据库中有此游戏
+        //先检查社区游戏数据库，防止雷神数据库中的进程名有假（我服了，雷神的进程库还有假的进程名，这个和写假注释一样可恶！他猫猫的）
         gameProcessList = parseGameProcess(
           CommunityGameDB[String(gameInfoArg.game_id)],
         );
@@ -645,25 +629,10 @@ try {
         mainWindow,
         gameInfoArg.game_id,
       );
-      //如果GameInfo 不为空
-
-      if (!GameInfo) {
-        showStartupNotification(
-          "获取游戏进程失败",
-          "目标game_process字段中无法获取游戏名称,点击顶部状态栏“🔗 提交进程”进行反馈提交。",
-          false,
-        );
-        writeLog(
-          `[GameMonitoring] No game_process found. Aborting monitoring.`,
-        );
-        MonitoringManager.stop(true);
-        updateUiState("MISSING");
-        return;
-      }
       /*判断是不是在排除项目，其次看看是不是免费加速的。如果是免费或者平台就不进入状态机*/
       if (
-        ExcludedGameIDs.includes(GameInfo.game_id) ||
-        GameInfo.is_free === "1"
+        GameInfo &&
+        (ExcludedGameIDs.includes(GameInfo.game_id) || GameInfo.is_free === "1")
       ) {
         showStartupNotification(
           "自动暂停已跳过",
@@ -675,18 +644,12 @@ try {
         );
         return;
       }
-      //检查社区游戏数据库
-      if (GameInfo.game_process && GameInfo.game_process !== "") {
-        //进入雷神数据库获取游戏进程（我服了，雷神的进程库还有假的进程名，这个和写假注释一样可恶！他猫猫的）
-        gameProcessList = parseGameProcess(GameInfo.game_process);
-        writeLog(
-          `[GameMonitoring] Parsed game processes: ${JSON.stringify(
-            gameProcessList,
-          )}`,
-        );
-        MonitoringManager.start(gameProcessList);
-        return;
-      } else {
+      //如果GameInfo 不为空
+      if (
+        !GameInfo ||
+        !GameInfo.game_process ||
+        GameInfo.game_process.trim() === ""
+      ) {
         showStartupNotification(
           "获取游戏进程失败",
           "目标game_process字段中无法获取游戏名称,点击顶部状态栏“🔗 提交进程”进行反馈提交。",
@@ -699,6 +662,15 @@ try {
         updateUiState("MISSING");
         return;
       }
+
+      gameProcessList = parseGameProcess(GameInfo.game_process);
+      writeLog(
+        `[GameMonitoring] Parsed game processes: ${JSON.stringify(
+          gameProcessList,
+        )}`,
+      );
+      MonitoringManager.start(gameProcessList);
+      return;
     } catch (e) {
       writeLog(`[handleGameProcessMonitoring] ERROR: ${e}`);
     }
@@ -716,7 +688,8 @@ try {
           if (target && target.includes("renderer.asar/index.html")) {
             if (mainWindowCaptured) return; //防止后续有新的窗口弹出覆盖掉这个mainwindow
             writeLog("[Monitor] Injecting UI widget...");
-            mainWindow = window; //拿到主窗口后续用于注入状态组件以及获取游戏进程
+            mainWindow = window; //拿到主窗口后续用于
+            // 注入状态组件以及获取游戏进程
             mainWindowCaptured = true;
             writeLog("[Monitor] Main Window registered.");
             const script = `const timer = setInterval(() => {
@@ -996,7 +969,6 @@ style="background:#ff9800;
     /* empty */
   } //清空日志文件
   writeLog("[Main] Script loaded and log file cleared.");
-
   app.whenReady().then(() => {
     //完成初始化后执行下面操作
     showStartupNotification(
