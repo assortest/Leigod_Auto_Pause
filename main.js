@@ -489,7 +489,6 @@ try {
       case "leigod-simplify-open-external":
         newListener = interceptedOpenExternal(listener);
         break;
-
       // case "leigod-simplify-recover-user-time": //讲真，虽然我不认为真的会有人就解除暂停不加速游戏但是还是处理一下吧
       //   newListener = interceptedRecoverUserTime(listener, channel);
       //   break;
@@ -701,6 +700,11 @@ try {
     const div = document.createElement("div");
     div.id = "leigod-monitor-Widget";
     div.style.cssText = \`
+                        position: absolute;
+                        right: 480px;
+                        top: 50%;
+                        transform: translateY(-50%); 
+                        z-index: 999;
                         height: 24px; 
                         min-width: 90px; 
                         background: rgba(255,255,255,0.1); 
@@ -968,6 +972,7 @@ style="background:#ff9800;
   } catch (err) {
     /* empty */
   } //清空日志文件
+
   writeLog("[Main] Script loaded and log file cleared.");
   app.whenReady().then(() => {
     //完成初始化后执行下面操作
