@@ -696,33 +696,53 @@ try {
   const rechargeBtn = document.querySelector(".recharge-enrty");
   if (navControl && rechargeBtn) {
     clearInterval(timer);
+      if (!document.getElementById("leigod-anti-wrap-style")) {
+    const stylePatch = document.createElement("style");
+    stylePatch.id = "leigod-anti-wrap-style";
+    stylePatch.innerHTML = \`
+      .time-button {
+              white-space: nowrap !important; 
+              flex-shrink: 0 !important;
+              min-width: fit-content !important; 
+          }     
+          .time-format-view {
+              flex-wrap: nowrap !important; 
+              flex-shrink: 0 !important;
+          }
+          .page-back { /*我要死了，为了处理这些样式 */
+              white-space: nowrap !important; 
+              flex-shrink: 0 !important;
+          }
+    \`;
+    document.head.appendChild(stylePatch);
+}
     if (document.getElementById("leigod-monitor-Widget")) return;
     const div = document.createElement("div");
     div.id = "leigod-monitor-Widget";
     div.style.cssText = \`
-                        position: absolute;
-                        right: 480px;
-                        top: 50%;
-                        transform: translateY(-50%); 
-                        z-index: 999;
-                        height: 24px; 
-                        min-width: 90px; 
-                        background: rgba(255,255,255,0.1); 
-                        border-radius: 12px; 
-                        display: flex; 
-                        align-items: center; 
-                        justify-content: center; 
-                        cursor: pointer; 
-                        color: #a4a4a4; 
-                        font-size: 12px; 
-                        font-family: 'Microsoft YaHei'; 
-                        -webkit-app-region: no-drag; 
-                        transition: all 0.2s; 
-                        padding: 0 10px; 
-                        font-feature-settings: 'tnum';
-                        user-select: none;
-                        margin-right: 12px; 
-                    \`;
+      position: relative; 
+      z-index: 9999;
+      height: 24px; 
+      min-width: 90px; 
+      flex-shrink: 0; 
+      white-space: nowrap; 
+      background: rgba(255,255,255,0.1); 
+      border-radius: 12px; 
+      display: inline-flex; 
+      align-items: center; 
+      justify-content: center; 
+      cursor: pointer; 
+      color: #a4a4a4; 
+      font-size: 12px; 
+      font-family: 'Microsoft YaHei'; 
+      -webkit-app-region: no-drag; 
+      transition: all 0.2s; 
+      padding: 0 5px; 
+      font-feature-settings: 'tnum';
+      user-select: none;
+      margin-left: 5px;  
+      margin-right: -8px; 
+    \`;
     //设置状态为空闲
     div.dataset.state = "idle";
     div.innerHTML = '<span id="leigod-status-text">⚙️ 自动监控</span>';
