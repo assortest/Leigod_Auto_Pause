@@ -77,6 +77,9 @@
 **倒计时状态** → 游戏已退出，等待重启
 ![image](https://github.com/assortest/Leigod_Auto_Pause/blob/main/image/COUNTING.png)
 
+**等待时间选择（点击自动监控按钮即可显示）**
+![image](https://github.com/assortest/Leigod_Auto_Pause/blob/main/image/image.png)
+
 ## 🤝 贡献指南
 
 ### 已知问题与贡献
