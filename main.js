@@ -14,7 +14,18 @@ try {
   //========== 全局变量 ==========
   let GLOBAL_USER_TOKEN = "";
   let mainWindow;
+  let GLOBAL_GRACE_TIME = 15000; // 全局倒计时时间，默认15s
+
   //========== 常量 ==========
+  const DevMode = false; //调试开关（True为开启）
+  const TIME_TEXT_MAP = {
+    15000: "15秒",
+    30000: "30秒",
+    60000: "1分钟",
+    300000: "5分钟",
+    600000: "10分钟",
+    900000: "15分钟",
+  };
   //社区维护的游戏进程名
   /*
   有点怪，雷神居然有在维护这个indexdb，我一直以为是历史遗留问题，但是这次他居然吧战地6和星际战甲这类游戏的进程名放进来了。。。
@@ -269,15 +280,16 @@ try {
     },
 
     _enterGracePeriodState() {
+      const timeText = TIME_TEXT_MAP[GLOBAL_GRACE_TIME] || "设定的时间";
       showStartupNotification(
         "进入等待期",
-        "程序进入等待期十分钟后会将会暂停加速",
+        `程序进入等待期${timeText}后会将会暂停加速`,
         false,
       );
       const startTime = Date.now(); //等待期开始时间
-      const endTime = startTime + 600000; //等待期结束时间
+      const endTime = startTime + GLOBAL_GRACE_TIME; //等待期结束时间
       let lastTimeStr = "";
-      updateUiState("COUNTING", `⏳ ${formatTime(600000)}`);
+      updateUiState("COUNTING", `⏳ ${formatTime(GLOBAL_GRACE_TIME)}`);
       //看起来还需要一个定时器来自动刷新时间
       this.countdownIntervalId = setInterval(async () => {
         const remainingTime = endTime - Date.now();
@@ -295,7 +307,7 @@ try {
               //确定没有运行就真正处理暂停
               this.stop(true);
               writeLog(
-                "[Monitor] 10-minute grace period ended. Game did not start. Pausing acceleration.",
+                "[Monitor] grace period ended. Game did not start. Pausing acceleration.",
               );
               if (mainWindow) {
                 try {
@@ -447,16 +459,59 @@ try {
   function interceptedOpenExternal(listener) {
     return async (event, ...args) => {
       //偷偷在External里拦截做通讯
-      if (args[0] === "leigod-plugin://interrupt") {
-        writeLog(
-          "[interceptedOpenExternal] Intercepted interrupt command via open-external!",
-        );
-        MonitoringManager.stop(true);
-        updateUiState("missing");
-        return;
+      const url = args[0];
+      if (!url || typeof url !== "string") {
+        return await listener(event, ...args);
       }
-      const result = await listener(event, ...args);
-      return result;
+      const baseUrl = url.split("?")[0];
+      switch (baseUrl) {
+        case "leigod-plugin://interrupt":
+          writeLog(
+            "[interceptedOpenExternal] Intercepted interrupt command via open-external!",
+          );
+          MonitoringManager.stop(true);
+          updateUiState("missing");
+          return;
+
+        case "leigod-plugin://set-time":
+          try {
+            const urlObj = new URL(url); //拿到url进行
+            const ms = Number(urlObj.searchParams.get("ms"));
+            if (ms && TIME_TEXT_MAP[ms]) {
+              writeLog(
+                `[interceptedOpenExternal] Grace time updated to ${ms}ms by user.`,
+              );
+              GLOBAL_GRACE_TIME = ms;
+              showStartupNotification(
+                "设置已保存",
+                `自动暂停等待时间已修改为 ${TIME_TEXT_MAP[ms]}`,
+                true,
+                3000,
+              );
+            } else {
+              writeLog(
+                `[interceptedOpenExternal] Invalid time setting attempt: ${url}`,
+              );
+            }
+          } catch (e) {
+            writeLog(
+              `[interceptedOpenExternal] Error parsing set-time URL: ${e.message}`,
+            );
+          }
+          return;
+        default: {
+          const result = await listener(event, ...args);
+          return result;
+        }
+      }
+      // if (args[0] === "leigod-plugin://interrupt") {
+      //   writeLog(
+      //     "[interceptedOpenExternal] Intercepted interrupt command via open-external!",
+      //   );
+      //   MonitoringManager.stop(true);
+      //   updateUiState("missing");
+      //   return;
+      // }
     };
   }
 
@@ -682,15 +737,39 @@ try {
     app.on("browser-window-created", (event, window) => {
       writeLog("[Monitor] enter browser-window-created ...");
       try {
-        window.webContents.on("did-finish-load", () => {
+        window.webContents.on("did-finish-load", async () => {
           const target = window.webContents.getURL();
           if (target && target.includes("renderer.asar/index.html")) {
             if (mainWindowCaptured) return; //防止后续有新的窗口弹出覆盖掉这个mainwindow
             writeLog("[Monitor] Injecting UI widget...");
-            mainWindow = window; //拿到主窗口后续用于
+            mainWindow = window; //拿到主窗口后续用于执行js
             // 注入状态组件以及获取游戏进程
             mainWindowCaptured = true;
             writeLog("[Monitor] Main Window registered.");
+            if (DevMode) {
+              window.webContents.openDevTools({ mode: "detach" }); //调试
+            }
+            //拿到用户自定义的时间
+            try {
+              const savedTime = await mainWindow.webContents.executeJavaScript(
+                "localStorage.getItem('leigod_grace_time')",
+              );
+              const parsedTime = Number(savedTime);
+              if (parsedTime && TIME_TEXT_MAP[parsedTime]) {
+                GLOBAL_GRACE_TIME = parsedTime;
+                writeLog(
+                  `[Monitor] Synced grace time from frontend: ${GLOBAL_GRACE_TIME}ms`,
+                );
+              } else {
+                // 如果没有保存过或者数据非法，强制设为 10 分钟兜底
+                GLOBAL_GRACE_TIME = 600000;
+                writeLog(
+                  "[Monitor] No valid saved time found, keeping default 10 mins.",
+                );
+              }
+            } catch (err) {
+              writeLog(`[Monitor] Sync time error: ${err.message}`);
+            }
             const script = `const timer = setInterval(() => {
   const navControl = document.querySelector(".nav-control");
   const rechargeBtn = document.querySelector(".recharge-enrty");
@@ -704,7 +783,12 @@ try {
               white-space: nowrap !important; 
               flex-shrink: 0 !important;
               min-width: fit-content !important; 
-          }     
+          }   
+      .recharge-text{
+            white-space: nowrap !important; 
+            flex-shrink: 0 !important;
+            min-width: fit-content !important; 
+        }  
           .time-format-view {
               flex-wrap: nowrap !important; 
               flex-shrink: 0 !important;
@@ -743,7 +827,6 @@ try {
       margin-left: 5px;  
       margin-right: -8px; 
     \`;
-    //设置状态为空闲
     div.dataset.state = "idle";
     div.innerHTML = '<span id="leigod-status-text">⚙️ 自动监控</span>';
     div.onmouseenter = () => {
@@ -815,9 +898,7 @@ style="background:#ff9800;
 </div>
 </div>
 \`;
-
         document.body.appendChild(modal); //把内容插入
-
         //开始处理按键响应
         document.getElementById("leigod-btn-cancel").onclick = () => {
           modal.remove();
@@ -826,6 +907,86 @@ style="background:#ff9800;
           modal.remove();
           leigodSimplify.invoke("open-external", "leigod-plugin://interrupt");
         };
+      } else if (div.dataset.state === "idle") {//这里处理用户自定义时间
+        const currentTime =
+          localStorage.getItem("leigod_grace_time") || "600000"; //获取时间，如果没有就使用默认的
+        //设置名字和遮罩
+        const modal = document.createElement("div");
+        modal.id = "leigod-time-modal";
+        modal.style.cssText = \`position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(0, 0, 0, 0.6);
+    z-index: 99999;
+    display: flex;
+    justify-content: center;
+    align-items: center;\`;
+        //时间选择按钮
+        const options = [
+          { label: "15秒", value: "15000" },
+          { label: "30秒", value: "30000" },
+          { label: "1分钟", value: "60000" },
+          { label: "5分钟", value: "300000" },
+          { label: "10分钟", value: "600000" },
+          { label: "15分钟", value: "900000" },
+        ];
+        // 动态生成按钮 HTML
+        let btnsHtml = "";
+        options.forEach((opt) => {
+          const isSelected = (opt.value === currentTime);
+          const bg = isSelected ? "#ff9800" : "#444"; // 选中的亮橙色，未选中的暗灰色
+          const color = isSelected ? "#fff" : "#ccc";
+          btnsHtml +=
+            '<button class="leigod-time-btn" data-ms="' +
+            opt.value +
+            '" style="background:' +
+            bg +
+            '; border:none; color:' +
+            color +
+            '; padding:8px 0; border-radius: 4px; cursor: pointer; font-size: 13px; font-family: Microsoft YaHei; transition: all 0.2s;">' +
+            opt.label +
+            '</button>';
+        });
+
+        modal.innerHTML =
+          \`<div style="background: #2b2b2b; padding: 20px 30px; border-radius: 8px; color: #fff; text-align: center; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5); width: 280px; box-sizing: border-box;">
+          <h3 style="margin: 0 0 10px 0; font-size: 16px; font-weight: normal; color: #ff9800;">设置等待时间</h3>
+          <p style="font-size: 13px; color: #aaa; margin: 0 0 20px 0; line-height: 1.5; text-align: left;">
+              请选择游戏进程结束后，多长时间自动暂停加速。
+          </p>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+        \${btnsHtml}
+          </div>
+        </div>\`;
+        document.body.appendChild(modal);
+        modal.onclick = (e) => { //点击遮罩层关闭面板
+          if (e.target === modal) modal.remove();
+        };
+        const btns = modal.querySelectorAll(".leigod-time-btn");
+        btns.forEach((btn) => {//加一点变色
+          btn.onmouseenter = () => {
+            if (btn.style.backgroundColor !== "rgb(255, 152, 0)")
+              btn.style.backgroundColor = "#555";
+          };
+          btn.onmouseleave = () => {
+            if (btn.style.backgroundColor !== "rgb(255, 152, 0)")
+              btn.style.backgroundColor = "#444";
+          };
+
+          btn.onclick = () => {
+            const ms = btn.getAttribute("data-ms");
+            // 存入前端 LocalStorage
+            localStorage.setItem("leigod_grace_time", ms);
+            // 呼叫后端主进程
+            window.leigodSimplify.invoke(
+              "open-external",
+              "leigod-plugin://set-time?ms=" + ms,
+            );
+            modal.remove();
+          };
+        });
       }
     };
     navControl.insertBefore(div, rechargeBtn);
