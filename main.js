@@ -58,8 +58,8 @@ try {
     3424: "forza_steamworks_release_final.exe", //Forza Motorsport
     192: "Adjust.exe,javaw.exe,usched.exe,java.exe", //我的世界
     2639: "Adjust.exe,javaw.exe,usched.exe,java.exe", //我的世界国服
-    704:  "hoi4.exe,hearts of iron IV.exe",
-    2980:"For The King II.exe",
+    704: "hoi4.exe,hearts of iron IV.exe",
+    3570:"WorldOfWarships64.exe,WorldOfWarships.exe,Korabli64.exe,Korabli.exe"
   };
   const ExcludedGameIDs = [109, 437, 1544, 274, 1921, 1342, 860, 2529]; //steam epic 暴雪 育碧uplay eaapp  rockstar GOG 远程同乐
   const UI_STATES = {
@@ -91,6 +91,7 @@ try {
       code: "missing",
     },
   };
+  const EXCLUDED_PROCESS_KEYWORDS = ["crashhandler"];
   //========== 模块引入 ==========
   const { app, ipcMain, Notification } = require("electron"); // 结构引入 Electron 使用的模块
   const { spawn } = require("child_process");
@@ -163,6 +164,18 @@ try {
       writeLog(`[Notification] Failed to show: ${err.message}`);
     }
   }
+  /**
+   * 过滤掉进程列表中的辅助进程（crash handler 等）
+   * @param {string[]} processList
+   * @returns {string[]}
+   */
+  function filterAuxiliaryProcesses(processList) {
+    if (processList.length <= 1) return processList; //只有一个进程就没必要过滤
+    return processList.filter((proc) => {
+      const lower = proc.toLowerCase();
+      return !EXCLUDED_PROCESS_KEYWORDS.some((kw) => lower.includes(kw));
+    });
+  }
 
   // ========== 核心管理器 ==========
   //状态机 监控管理器 核心逻辑
@@ -188,9 +201,10 @@ try {
       this._startDebounceTimer = setTimeout(() => {
         this._startDebounceTimer = null;
       }, 2000);
-      writeLog(
-        `[Monitor] Received start command for: ${processList.join(", ")}`,
-      );
+      //过滤掉辅助进程
+      writeLog(`[Monitor] Raw process list: ${processList.join(",")}`);
+      processList = filterAuxiliaryProcesses(processList);
+      writeLog(`[Monitor] Filtered process list: ${processList.join(",")}`);
       this.stop(false); //清理掉所有定时器
       if (!processList || processList.length === 0) {
         //如果ProcessList是空的就返回
@@ -718,7 +732,6 @@ try {
         updateUiState("MISSING");
         return;
       }
-
       gameProcessList = parseGameProcess(GameInfo.game_process);
       writeLog(
         `[GameMonitoring] Parsed game processes: ${JSON.stringify(
