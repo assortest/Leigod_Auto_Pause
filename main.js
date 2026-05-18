@@ -59,7 +59,8 @@ try {
     192: "Adjust.exe,javaw.exe,usched.exe,java.exe", //我的世界
     2639: "Adjust.exe,javaw.exe,usched.exe,java.exe", //我的世界国服
     704: "hoi4.exe,hearts of iron IV.exe",
-    3570:"WorldOfWarships64.exe,WorldOfWarships.exe,Korabli64.exe,Korabli.exe"
+    3570: "WorldOfWarships64.exe,WorldOfWarships.exe,Korabli64.exe,Korabli.exe",//战舰世界莱福
+    2925:"InphaseNXD.exe", //天翼之链
   };
   const ExcludedGameIDs = [109, 437, 1544, 274, 1921, 1342, 860, 2529]; //steam epic 暴雪 育碧uplay eaapp  rockstar GOG 远程同乐
   const UI_STATES = {
