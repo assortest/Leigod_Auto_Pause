@@ -35,7 +35,7 @@ try {
     1559: "VALORANT-Win64-Shipping.exe", //无畏契约
     137: "vermintide2_dx12.exe,vermintide2.exe", //末世鼠疫2
     254: "EscapeFromTarkov.exe", //逃离塔科夫
-    5226: "PioneerGame.exe", //ARC Raiders
+    5226: "PioneerGame.exe,PioneerGame-d.exe,PioneerGame-e.exe", //ARC Raiders
     7288: "Aion2.exe", //永恒之塔2
     //114: "League of Legends.exe", //英雄联盟
     2661: "Discovery.exe,Discovery-d.exe,Discovery-e.exe", //THE FINALS
@@ -60,7 +60,7 @@ try {
     2639: "Adjust.exe,javaw.exe,usched.exe,java.exe", //我的世界国服
     704: "hoi4.exe,hearts of iron IV.exe",
     3570: "WorldOfWarships64.exe,WorldOfWarships.exe,Korabli64.exe,Korabli.exe",//战舰世界莱福
-    2925:"InphaseNXD.exe", //天翼之链
+    2925:"InphaseNXD.exe",
   };
   const ExcludedGameIDs = [109, 437, 1544, 274, 1921, 1342, 860, 2529]; //steam epic 暴雪 育碧uplay eaapp  rockstar GOG 远程同乐
   const UI_STATES = {
