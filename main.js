@@ -92,7 +92,7 @@ try {
       code: "missing",
     },
   };
-  const EXCLUDED_PROCESS_KEYWORDS = ["crashhandler"];
+  const EXCLUDED_PROCESS_KEYWORDS = ["crashhandler","crashpad_handler.exe"];
   //========== 模块引入 ==========
   const { app, ipcMain, Notification } = require("electron"); // 结构引入 Electron 使用的模块
   const { spawn } = require("child_process");
