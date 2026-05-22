@@ -60,9 +60,9 @@ try {
     2639: "Adjust.exe,javaw.exe,usched.exe,java.exe", //我的世界国服
     704: "hoi4.exe,hearts of iron IV.exe",
     3570: "WorldOfWarships64.exe,WorldOfWarships.exe,Korabli64.exe,Korabli.exe",//战舰世界莱福
-    2925:"InphaseNXD.exe",
+    2925: "InphaseNXD.exe",
   };
-  const ExcludedGameIDs = [109, 437, 1544, 274, 1921, 1342, 860, 2529]; //steam epic 暴雪 育碧uplay eaapp  rockstar GOG 远程同乐
+  const ExcludedGameIDs = [109, 437, 1544, 274, 1921, 1342, 860]; //steam epic 暴雪 育碧uplay eaapp  rockstar GOG 远程同乐
   const UI_STATES = {
     //监控中
     ACTIVE: {
@@ -92,7 +92,7 @@ try {
       code: "missing",
     },
   };
-  const EXCLUDED_PROCESS_KEYWORDS = ["crashhandler","crashpad_handler.exe"];
+  const EXCLUDED_PROCESS_KEYWORDS = ["crashhandler", "crashpad_handler"];
   //========== 模块引入 ==========
   const { app, ipcMain, Notification } = require("electron"); // 结构引入 Electron 使用的模块
   const { spawn } = require("child_process");
@@ -703,7 +703,7 @@ try {
       /*判断是不是在排除项目，其次看看是不是免费加速的。如果是免费或者平台就不进入状态机*/
       if (
         GameInfo &&
-        (ExcludedGameIDs.includes(GameInfo.game_id) || GameInfo.is_free === "1")
+        (ExcludedGameIDs.includes(GameInfo.id) || GameInfo.is_free === "1")
       ) {
         showStartupNotification(
           "自动暂停已跳过",
