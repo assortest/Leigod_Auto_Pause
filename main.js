@@ -59,10 +59,10 @@ try {
     192: "Adjust.exe,javaw.exe,usched.exe,java.exe", //我的世界
     2639: "Adjust.exe,javaw.exe,usched.exe,java.exe", //我的世界国服
     704: "hoi4.exe,hearts of iron IV.exe",
-    3570: "WorldOfWarships64.exe,WorldOfWarships.exe,Korabli64.exe,Korabli.exe",//战舰世界莱福
+    3570: "WorldOfWarships64.exe,WorldOfWarships.exe,Korabli64.exe,Korabli.exe", //战舰世界莱福
     2925: "InphaseNXD.exe",
   };
-  const ExcludedGameIDs = [109, 437, 1544, 274, 1921, 1342, 860]; //steam epic 暴雪 育碧uplay eaapp  rockstar GOG 远程同乐
+  const ExcludedGameIDs = [109, 437, 1544, 274, 1921, 1342, 860, 2529]; //steam epic 暴雪 育碧uplay eaapp  rockstar GOG 远程同乐
   const UI_STATES = {
     //监控中
     ACTIVE: {
@@ -788,8 +788,8 @@ try {
             }
             const script = `const timer = setInterval(() => {
   const navControl = document.querySelector(".nav-control");
-  const rechargeBtn = document.querySelector(".recharge-enrty");
-  if (navControl && rechargeBtn) {
+  const redpackWrap = document.querySelector(".redpack-wrap");
+  if (navControl && redpackWrap) {
     clearInterval(timer);
       if (!document.getElementById("leigod-anti-wrap-style")) {
     const stylePatch = document.createElement("style");
@@ -841,7 +841,7 @@ try {
       font-feature-settings: 'tnum';
       user-select: none;
       margin-left: 5px;  
-      margin-right: -8px; 
+      margin-right: 25px; 
     \`;
     div.dataset.state = "idle";
     div.innerHTML = '<span id="leigod-status-text">⚙️ 自动监控</span>';
@@ -1005,7 +1005,7 @@ style="background:#ff9800;
         });
       }
     };
-    navControl.insertBefore(div, rechargeBtn);
+    navControl.insertBefore(div, redpackWrap);
   }
 }, 500);`;
 
