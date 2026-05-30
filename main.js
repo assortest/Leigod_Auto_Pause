@@ -762,6 +762,7 @@ try {
             // 注入状态组件以及获取游戏进程
             mainWindowCaptured = true;
             writeLog("[Monitor] Main Window registered.");
+            patchMainWindowClose(); // mainWindow 就绪后立即挂载关闭/关机拦截
             if (DevMode) {
               window.webContents.openDevTools({ mode: "detach" }); //调试
             }
@@ -1165,9 +1166,6 @@ style="background:#ff9800;
     );
     patchIpcMain();
     injectStatusWidget();
-    setTimeout(() => {
-      patchMainWindowClose(); // browser-window-created也行 但是不想写了 摸了
-    }, 15000);
   });
   require("bytenode");
   require("./main.jsc");
