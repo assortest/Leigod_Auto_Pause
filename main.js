@@ -95,7 +95,7 @@ try {
   const EXCLUDED_PROCESS_KEYWORDS = ["crashhandler", "crashpad_handler"];
   //========== 模块引入 ==========
   const { app, ipcMain, Notification } = require("electron"); // 结构引入 Electron 使用的模块
-  const { spawn } = require("child_process");
+  const { execFileSync } = require("child_process");
   const path = require("path"); //用于处理路径
   const fs = require("fs"); //用于文件操作
   const userDataPath = app.getPath("userData");
@@ -1092,41 +1092,26 @@ style="background:#ff9800;
       });
 
       try {
-        //构造curl命令
-        const child = spawn(
-          "curl",
+        //使用execFileSync同步调用curl，确保请求完成后才退出
+        const result = execFileSync(
+          "curl.exe",
           [
+            "-s",
             "-X",
             "POST",
             API_URL,
             "-H",
             "Content-Type: application/json",
-            "-H",
-            "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36", //模拟成浏览器
             "-d",
-            jsonBody, // 数据体
+            jsonBody,
             "-m",
             "3",
-            "-s",
           ],
-          {
-            detached: true, //运行在后台
-            stdio: "ignore", // 忽略输出
-            windowsHide: true, //忽略Windows控制台
-          },
+          { timeout: 4000, windowsHide: true },
         );
-        writeLog("[Shutdown] CURL Launched with JSON Payload.");
-
-        child.unref(); //让父进程可以立即退出，不等待curl请求完成
-        const start = Date.now();
-        //Domain Expansion
-        while (Date.now() - start < 1500) {
-          /*Infinite Void*/
-        } //空转1.5秒来等待拉起curl防止进程结束没发包
-
-        writeLog("[Shutdown] CURL launched. Electron exiting.");
+        writeLog(`[Shutdown] Pause response: ${result.toString()}`);
       } catch (e) {
-        writeLog(`[Shutdown] Spawn Error: ${e.message}`);
+        writeLog(`[Shutdown] curl error: ${e.message}`);
       }
       //晚安，世界。
       writeLog("[Shutdown] Good night, world.");
