@@ -310,7 +310,7 @@ try {
     _enterActiveMonitoringState() {
       //设置轮询检查进程是否运行
       updateUiState("ACTIVE");
-      const intervalTime = GLOBAL_CHECK_MODE === "tasklist" ? 5000 : 2000; //如果是tasklist的话就5秒一次，否则就2秒一次
+      const intervalTime = GLOBAL_CHECK_MODE === "tasklist" ? 10000 : 2000; //如果是tasklist的话就5秒一次，否则就2秒一次
       this.monitorIntervalId = setInterval(() => {
         this._checkProcessExists().then((isProcessRunning) => {
           if (!isProcessRunning) {
@@ -394,7 +394,7 @@ try {
       }, 500);
 
       //设置轮询检查游戏是否重新启动 启动的话就进入_enterActiveMonitoringState
-      const graceCheckTime = GLOBAL_CHECK_MODE === "tasklist" ? 3000 : 1000;
+      const graceCheckTime = GLOBAL_CHECK_MODE === "tasklist" ? 5000 : 1000;
       this.graceCheckIntervalId = setInterval(() => {
         //检查一次如果启动了就吧宽恕期的定时器处理掉然后重新加入活动模式
         this._checkProcessExists().then((isProcessRunning) => {
