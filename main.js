@@ -394,8 +394,9 @@ try {
       }, 500);
 
       //设置轮询检查游戏是否重新启动 启动的话就进入_enterActiveMonitoringState
+      const graceCheckTime = GLOBAL_CHECK_MODE === "tasklist" ? 3000 : 1000;
       this.graceCheckIntervalId = setInterval(() => {
-        //每1秒检查一次如果启动了就吧宽恕期的定时器处理掉然后重新加入活动模式
+        //检查一次如果启动了就吧宽恕期的定时器处理掉然后重新加入活动模式
         this._checkProcessExists().then((isProcessRunning) => {
           if (isProcessRunning) {
             writeLog(
@@ -405,7 +406,7 @@ try {
             this._enterActiveMonitoringState();
           }
         });
-      }, 1000);
+      }, graceCheckTime);
       writeLog("[Monitor] Grace period started.");
     },
   };
