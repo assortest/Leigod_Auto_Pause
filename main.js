@@ -15,7 +15,7 @@ try {
   let GLOBAL_USER_TOKEN = "";
   let mainWindow;
   let GLOBAL_GRACE_TIME = 15000; // 全局倒计时时间，默认15s
-  let GLOBAL_CHECK_MODE = "tasklist"; //WIN32 或者 tasklist
+  let GLOBAL_CHECK_MODE = "api"; //WIN32 或者 tasklist
 
   //========== 常量 ==========
   const DevMode = false; //调试开关（True为开启）
