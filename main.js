@@ -15,6 +15,7 @@ try {
   let GLOBAL_USER_TOKEN = "";
   let mainWindow;
   let GLOBAL_GRACE_TIME = 15000; // 全局倒计时时间，默认15s
+  let GLOBAL_CHECK_MODE = "tasklist"; //WIN32 或者 tasklist
 
   //========== 常量 ==========
   const DevMode = false; //调试开关（True为开启）
@@ -96,7 +97,7 @@ try {
   const EXCLUDED_PROCESS_KEYWORDS = ["crashhandler", "crashpad_handler"];
   //========== 模块引入 ==========
   const { app, ipcMain, Notification } = require("electron"); // 结构引入 Electron 使用的模块
-  const { execFileSync } = require("child_process");
+  const { execFileSync, execFile } = require("child_process");
   const path = require("path"); //用于处理路径
   const fs = require("fs"); //用于文件操作
   const userDataPath = app.getPath("userData");
@@ -256,25 +257,52 @@ try {
           resolve(false);
           return;
         }
-        try {
-          // 遍历所有需要监控的游戏进程名
-          for (let target of this.targetProcesses) {
-            target = target.trim();
-            if (!target) continue;
-            //直接雷神暴露的 API，第二个参数为什么是空你问我我也不知道
-            const isRunning = win32Addon.isProcessRunning(target, "");
-            if (isRunning) {
-              // 只要查到一个在跑，立刻判定为游戏运行中
-              resolve(true);
-              return;
+        if (GLOBAL_CHECK_MODE === "tasklist") {
+          execFile(
+            "tasklist.exe",
+            ["/FO", "CSV", "/NH"],
+            { windowsHide: true },
+            (error, stdout) => {
+              if (error) {
+                writeLog(`[Monitor] Tasklist command failed: ${error.message}`);
+                resolve(false);
+                return;
+              }
+              const output = stdout.toLowerCase(); //拿到输出结果
+              for (let target of this.targetProcesses) {
+                //遍历进程列表
+                target = target.trim(); //去除空格
+                if (!target) continue; //如果进程名是空的就跳过
+                if (output.includes(`"${target.toLowerCase()}"`)) {
+                  //判断进程是否存在
+                  resolve(true); //返回真
+                  return;
+                }
+              }
+              resolve(false);
+            },
+          );
+        } else {
+          try {
+            // 遍历所有需要监控的游戏进程名
+            for (let target of this.targetProcesses) {
+              target = target.trim();
+              if (!target) continue;
+              //直接雷神暴露的 API，第二个参数为什么是空你问我我也不知道
+              const isRunning = win32Addon.isProcessRunning(target, "");
+              if (isRunning) {
+                // 只要查到一个在跑，立刻判定为游戏运行中
+                resolve(true);
+                return;
+              }
             }
+            // 如果全扫完了都没在跑
+            resolve(false);
+          } catch (error) {
+            writeLog(`[Monitor]API call failed: ${error.message}`);
+            //如果报错了，默认返回 false
+            resolve(false);
           }
-          // 如果全扫完了都没在跑
-          resolve(false);
-        } catch (error) {
-          writeLog(`[Monitor]API call failed: ${error.message}`);
-          //如果报错了，默认返回 false
-          resolve(false);
         }
       });
     },
@@ -282,6 +310,7 @@ try {
     _enterActiveMonitoringState() {
       //设置轮询检查进程是否运行
       updateUiState("ACTIVE");
+      const intervalTime = GLOBAL_CHECK_MODE === "tasklist" ? 5000 : 2000; //如果是tasklist的话就5秒一次，否则就2秒一次
       this.monitorIntervalId = setInterval(() => {
         this._checkProcessExists().then((isProcessRunning) => {
           if (!isProcessRunning) {
@@ -293,7 +322,7 @@ try {
             this._enterGracePeriodState();
           }
         });
-      }, 2000);
+      }, intervalTime);
       writeLog("[Monitor] Active monitoring started.");
     },
 
@@ -514,6 +543,32 @@ try {
           } catch (e) {
             writeLog(
               `[interceptedOpenExternal] Error parsing set-time URL: ${e.message}`,
+            );
+          }
+          return;
+        case "leigod-plugin://set-mode":
+          try {
+            const urlObj = new URL(url);
+            const mode = urlObj.searchParams.get("mode");
+            if (mode === "api" || mode === "tasklist") {
+              writeLog(
+                `[interceptedOpenExternal] mode updated to ${mode} by user.`,
+              );
+              GLOBAL_CHECK_MODE = mode;
+              showStartupNotification(
+                "设置已保存",
+                `自动检测模式已修改为 ${mode}`,
+                true,
+                3000,
+              );
+            } else {
+              writeLog(
+                `[interceptedOpenExternal] Invalid mode setting attempt: ${url}`,
+              );
+            }
+          } catch (e) {
+            writeLog(
+              `[interceptedOpenExternal] Error parsing set-mode URL: ${e.message}`,
             );
           }
           return;
@@ -926,21 +981,18 @@ style="background:#ff9800;
           leigodSimplify.invoke("open-external", "leigod-plugin://interrupt");
         };
       } else if (div.dataset.state === "idle") {//这里处理用户自定义时间
-        const currentTime =
-          localStorage.getItem("leigod_grace_time") || "600000"; //获取时间，如果没有就使用默认的
+        const currentTime = localStorage.getItem("leigod_grace_time") || "600000"; //获取时间，如果没有就使用默认的
+        const currentMode = localStorage.getItem("leigod_check_mode") || "api"; //获取检测模式，如果没有就使用默认的
         //设置名字和遮罩
-        const modal = document.createElement("div");
+       const modal = document.createElement("div");
         modal.id = "leigod-time-modal";
-        modal.style.cssText = \`position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    background-color: rgba(0, 0, 0, 0.6);
-    z-index: 99999;
-    display: flex;
-    justify-content: center;
-    align-items: center;\`;
+        modal.style.cssText = \`position: fixed; 
+        top: 0; left: 0; width: 100vw; 
+        height: 100vh; 
+        background-color: rgba(0, 0, 0, 0.6);
+         z-index: 99999; display: flex; 
+         justify-content: center; 
+         align-items: center;\`;
         //时间选择按钮
         const options = [
           { label: "15秒", value: "15000" },
@@ -968,6 +1020,19 @@ style="background:#ff9800;
             '</button>';
         });
 
+        // 生成检测模式的按钮组
+        const modeOptions = [
+          { label: "原生 API (默认)", value: "api" },
+          { label: "系统兼容 ", value: "tasklist" }
+        ];
+        let modeBtnsHtml = "";
+        modeOptions.forEach((opt) => {
+          const isSelected = (opt.value === currentMode);
+          const bg = isSelected ? "#ff9800" : "#444"; 
+          const color = isSelected ? "#fff" : "#ccc";
+          modeBtnsHtml += '<button class="leigod-mode-btn" data-mode="' + opt.value + '" style="background:' + bg + '; border:none; color:' + color + '; padding:8px 0; border-radius: 4px; cursor: pointer; font-size: 13px; font-family: Microsoft YaHei; transition: all 0.2s;">' + opt.label + '</button>';
+        });
+
         modal.innerHTML =
           \`<div style="background: #2b2b2b; padding: 20px 30px; border-radius: 8px; color: #fff; text-align: center; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5); width: 280px; box-sizing: border-box;">
           <h3 style="margin: 0 0 10px 0; font-size: 16px; font-weight: normal; color: #ff9800;">设置等待时间</h3>
@@ -977,32 +1042,42 @@ style="background:#ff9800;
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
         \${btnsHtml}
           </div>
+          <hr style="border: none; border-top: 1px solid #444; margin: 0 0 15px 0;">
+          <h3 style="margin: 0 0 10px 0; font-size: 16px; font-weight: normal; color: #ff9800;">进程检测模式</h3>
+          <p style="font-size: 12px; color: #aaa; margin: 0 0 15px 0; line-height: 1.5; text-align: left;">如使用api模式导致某些游戏无法进入，请尝试切换至系统兼容模式。</p>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            \${modeBtnsHtml}
+          </div>
         </div>\`;
         document.body.appendChild(modal);
         modal.onclick = (e) => { //点击遮罩层关闭面板
           if (e.target === modal) modal.remove();
         };
-        const btns = modal.querySelectorAll(".leigod-time-btn");
-        btns.forEach((btn) => {//加一点变色
-          btn.onmouseenter = () => {
-            if (btn.style.backgroundColor !== "rgb(255, 152, 0)")
-              btn.style.backgroundColor = "#555";
-          };
-          btn.onmouseleave = () => {
-            if (btn.style.backgroundColor !== "rgb(255, 152, 0)")
-              btn.style.backgroundColor = "#444";
-          };
 
+        
+  const timeBtns = modal.querySelectorAll(".leigod-time-btn");
+        timeBtns.forEach((btn) => {
+          btn.onmouseenter = () => { if (btn.style.backgroundColor !== "rgb(255, 152, 0)") btn.style.backgroundColor = "#555"; };
+          btn.onmouseleave = () => { if (btn.style.backgroundColor !== "rgb(255, 152, 0)") btn.style.backgroundColor = "#444"; };
           btn.onclick = () => {
             const ms = btn.getAttribute("data-ms");
-            // 存入前端 LocalStorage
             localStorage.setItem("leigod_grace_time", ms);
-            // 呼叫后端主进程
-            window.leigodSimplify.invoke(
-              "open-external",
-              "leigod-plugin://set-time?ms=" + ms,
-            );
-            modal.remove();
+            window.leigodSimplify.invoke("open-external", "leigod-plugin://set-time?ms=" + ms);
+            timeBtns.forEach(b => { b.style.backgroundColor = "#444"; b.style.color = "#ccc"; });
+            btn.style.backgroundColor = "#ff9800"; btn.style.color = "#fff";
+          };
+        });
+
+          const modeBtns = modal.querySelectorAll(".leigod-mode-btn");
+          modeBtns.forEach((btn) => {
+          btn.onmouseenter = () => { if (btn.style.backgroundColor !== "rgb(255, 152, 0)") btn.style.backgroundColor = "#555"; };
+          btn.onmouseleave = () => { if (btn.style.backgroundColor !== "rgb(255, 152, 0)") btn.style.backgroundColor = "#444"; };
+          btn.onclick = () => {
+            const mode = btn.getAttribute("data-mode");
+            localStorage.setItem("leigod_check_mode", mode);
+            window.leigodSimplify.invoke("open-external", "leigod-plugin://set-mode?mode=" + mode);
+            modeBtns.forEach(b => { b.style.backgroundColor = "#444"; b.style.color = "#ccc"; });
+            btn.style.backgroundColor = "#ff9800"; btn.style.color = "#fff";
           };
         });
       }
