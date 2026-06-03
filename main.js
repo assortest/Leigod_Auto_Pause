@@ -15,7 +15,7 @@ try {
   let GLOBAL_USER_TOKEN = "";
   let mainWindow;
   let GLOBAL_GRACE_TIME = 15000; // 全局倒计时时间，默认15s
-  let GLOBAL_CHECK_MODE = "api"; //WIN32 或者 tasklist
+  let GLOBAL_CHECK_MODE = "api";
 
   //========== 常量 ==========
   const DevMode = false; //调试开关（True为开启）
@@ -190,6 +190,7 @@ try {
     countdownIntervalId: null, //倒计时id
     _startDebounceTimer: null, //是否正在监控
     _generation: 0, //防止重复
+    _checkTicket: 0,
     /**
      * @param {string[]} processList
      */
@@ -258,11 +259,17 @@ try {
           return;
         }
         if (GLOBAL_CHECK_MODE === "tasklist") {
+          this._checkTicket++;
+          const myTicket = this._checkTicket;
           execFile(
             "tasklist.exe",
             ["/FO", "CSV", "/NH"],
             { windowsHide: true },
             (error, stdout) => {
+              if (myTicket !== this._checkTicket) {
+                writeLog("[Monitor] Tasklist check result is stale. Ignoring.");
+                return;
+              }
               if (error) {
                 writeLog(`[Monitor] Tasklist command failed: ${error.message}`);
                 resolve(false);
@@ -310,7 +317,7 @@ try {
     _enterActiveMonitoringState() {
       //设置轮询检查进程是否运行
       updateUiState("ACTIVE");
-      const intervalTime = GLOBAL_CHECK_MODE === "tasklist" ? 10000 : 2000; //如果是tasklist的话就5秒一次，否则就2秒一次
+      const intervalTime = GLOBAL_CHECK_MODE === "tasklist" ? 10000 : 2000; //如果是tasklist的话就10秒一次，否则就2秒一次
       this.monitorIntervalId = setInterval(() => {
         this._checkProcessExists().then((isProcessRunning) => {
           if (!isProcessRunning) {
