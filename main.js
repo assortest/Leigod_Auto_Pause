@@ -15,7 +15,7 @@ try {
   let GLOBAL_USER_TOKEN = "";
   let mainWindow;
   let GLOBAL_GRACE_TIME = 15000; // 全局倒计时时间，默认15s
-  let GLOBAL_CHECK_MODE = "api";
+  let GLOBAL_CHECK_MODE = "tasklist";
 
   //========== 常量 ==========
   const DevMode = false; //调试开关（True为开启）
@@ -990,7 +990,7 @@ style="background:#ff9800;
         };
       } else if (div.dataset.state === "idle") {//这里处理用户自定义时间
         const currentTime = localStorage.getItem("leigod_grace_time") || "600000"; //获取时间，如果没有就使用默认的
-        const currentMode = localStorage.getItem("leigod_check_mode") || "api"; //获取检测模式，如果没有就使用默认的
+        const currentMode = localStorage.getItem("leigod_check_mode") || "tasklist"; //获取检测模式，如果没有就使用默认的
         //设置名字和遮罩
        const modal = document.createElement("div");
         modal.id = "leigod-time-modal";
