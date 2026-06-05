@@ -78,7 +78,7 @@
 ![image](https://github.com/assortest/Leigod_Auto_Pause/blob/main/image/COUNTING.png)
 
 **等待时间选择（点击自动监控按钮即可显示）**
-![image](https://github.com/assortest/Leigod_Auto_Pause/blob/main/image/image.png)
+![image](https://github.com/assortest/Leigod_Auto_Pause/blob/main/image/%E8%AE%BE%E7%BD%AE%E7%95%8C%E9%9D%A2.png)
 
 ## 🤝 贡献指南
 
@@ -127,7 +127,8 @@
 | v3.1.0          | 	新增点击自动监控按钮后可以选择多个档位的等待时间。         | 
 | v3.1.1          | 	修复雷神客户端更新导致的顶部 UI 布局错位问题。         | 
 | v3.2.0         | 	优化了关机时暂停的方案，同时对关闭事件的挂钩时机进行了优化。         | 
-| **v3.2.1**          | 	**对进程监控添加了兼容模式。**         | 
+| v3.2.1          | 	对进程监控添加了兼容模式。         | 
+| **v3.3.0**          | 	**增加了首次启动等待功能（现在开启加速后，如果尚未打开游戏，程序会进入“等待启动”状态。支持自定义超时时间（默认3分钟）。）。**         | 
 
 ### 启动器版本记录
 
