@@ -14,15 +14,18 @@ try {
   //========== 全局变量 ==========
   let GLOBAL_USER_TOKEN = "";
   let mainWindow;
-  let GLOBAL_GRACE_TIME = 15000; // 全局倒计时时间，默认15s
-  let GLOBAL_CHECK_MODE = "tasklist";
+  let GLOBAL_GRACE_TIME = 15000; // 游戏退出倒计时时间，默认15s
+  let GLOBAL_STARTUP_WAIT_TIME = 180000; // 第一次启动等待时间，默认3分钟
+  let GLOBAL_CHECK_MODE = "api";
 
   //========== 常量 ==========
-  const DevMode = false; //调试开关（True为开启）
+  const DevMode = false; //调试开关（true为开启）
   const TIME_TEXT_MAP = {
+    100: "立即暂停",
     15000: "15秒",
     30000: "30秒",
     60000: "1分钟",
+    180000: "3分钟",
     300000: "5分钟",
     600000: "10分钟",
     900000: "15分钟",
@@ -92,6 +95,12 @@ try {
       bg: "rgba(33, 150, 243, 0.15)",
       text: "🔗 提交进程",
       code: "missing",
+    },
+    WAITING: {
+      color: "#00bcd4",
+      bg: "rgba(0, 188, 212, 0.15)",
+      text: "⏳ 等待启动",
+      code: "waiting",
     },
   };
   const EXCLUDED_PROCESS_KEYWORDS = ["crashhandler", "crashpad_handler"];
@@ -191,6 +200,7 @@ try {
     _startDebounceTimer: null, //是否正在监控
     _generation: 0, //防止重复
     _checkTicket: 0,
+    waitingCheckIntervalId: null, //等待期id
     /**
      * @param {string[]} processList
      */
@@ -227,8 +237,8 @@ try {
         );
         this._enterActiveMonitoringState();
       } else {
-        writeLog("[Monitor] Game is not running. Entering grace period state.");
-        this._enterGracePeriodState();
+        writeLog("[Monitor] Game is not running. Entering waiting state.");
+        this._enterWaitingState();
       }
     },
     stop: function (clearList = true) {
@@ -237,7 +247,8 @@ try {
       if (this.monitorIntervalId) clearInterval(this.monitorIntervalId);
       if (this.graceCheckIntervalId) clearInterval(this.graceCheckIntervalId);
       if (this.countdownIntervalId) clearInterval(this.countdownIntervalId);
-
+      if (this.waitingCheckIntervalId)
+        clearInterval(this.waitingCheckIntervalId);
       if (clearList) {
         updateUiState("IDLE");
         this._generation++;
@@ -250,8 +261,57 @@ try {
       this.monitorIntervalId = null;
       this.graceCheckIntervalId = null;
       this.countdownIntervalId = null;
+      this.waitingCheckIntervalId = null;
     },
+    _enterWaitingState() {
+      //等待游戏启动状态
+      updateUiState("WAITING");
+      showStartupNotification(
+        "等待启动游戏中",
+        `等待启动游戏中,${TIME_TEXT_MAP[GLOBAL_STARTUP_WAIT_TIME]}后未启动将会暂停加速。`,
+      );
+      const endTime = Date.now() + GLOBAL_STARTUP_WAIT_TIME;
+      this.countdownIntervalId = setInterval(async () => {
+        const remainingTime = endTime - Date.now();
+        //判断时间是否到了，到了就进入下一个状态
+        if (remainingTime <= 0) {
+          writeLog("[Monitor] Startup wait timed out. Game did not start.");
+          this.stop(false);
+          try {
+            //时间到了还没有就退出状态机
+            showStartupNotification(
+              "启动等待超时",
+              "未检测到游戏运行，已自动暂停加速",
+              false,
+              0,
+            );
+            await mainWindow.webContents.executeJavaScript(
+              'window.leigodSimplify.invoke("stop-acc",{"reason": "other"})',
+            );
+            await mainWindow.webContents.executeJavaScript(
+              'window.leigodSimplify.invoke("pause-user-time")',
+            );
+          } catch (e) {
+            writeLog(`[Monitor] ERROR: ${e}`);
+          }
+          return;
+        }
+      }, 1000);
 
+      const checkTime = GLOBAL_CHECK_MODE === "tasklist" ? 5000 : 1000;
+      this.waitingCheckIntervalId = setInterval(() => {
+        this._checkProcessExists().then((isProcessRunning) => {
+          if (isProcessRunning) {
+            writeLog(
+              "[Monitor] Game has started during waiting period. Switching to active monitoring state.",
+            );
+            this.stop(false);
+            this._enterActiveMonitoringState();
+          }
+        });
+      }, checkTime);
+      writeLog("[Monitor] Waiting period started.");
+    },
     _checkProcessExists() {
       return new Promise((resolve) => {
         if (this.targetProcesses.length === 0) {
@@ -580,6 +640,33 @@ try {
             );
           }
           return;
+        case "leigod-plugin://set-startup-time":
+          try {
+            const urlObj = new URL(url);
+            const ms = Number(urlObj.searchParams.get("ms"));
+            if (ms && TIME_TEXT_MAP[ms]) {
+              writeLog(
+                `[interceptedOpenExternal] Startup wait time updated to ${TIME_TEXT_MAP[ms]} by user.`,
+              );
+              GLOBAL_STARTUP_WAIT_TIME = ms;
+              showStartupNotification(
+                "设置已保存",
+                `首次启动等待时间已修改为 ${TIME_TEXT_MAP[ms]}`,
+                true,
+                3000,
+              );
+            } else {
+              writeLog(
+                `[interceptedOpenExternal] Invalid time setting attempt: ${url}`,
+              );
+            }
+          } catch (e) {
+            writeLog(
+              `[interceptedOpenExternal] Error parsing set-time URL: ${e.message}`,
+            );
+          }
+          return;
+
         default: {
           const result = await listener(event, ...args);
           return result;
@@ -830,11 +917,29 @@ try {
             if (DevMode) {
               window.webContents.openDevTools({ mode: "detach" }); //调试
             }
-            //拿到用户自定义的时间
+            //拿到用户自定义以及第一次启动的时间以及模式
             try {
+              //拿到开启加速时需要等待的时间
+              const savedStartupTime =
+                await mainWindow.webContents.executeJavaScript(
+                  "localStorage.getItem('leigod_startup_time')",
+                );
+              if (savedStartupTime) {
+                GLOBAL_STARTUP_WAIT_TIME = savedStartupTime;
+                writeLog(
+                  `[Monitor] Synced startup time from frontend: ${GLOBAL_STARTUP_WAIT_TIME}ms`,
+                );
+              } else {
+                GLOBAL_STARTUP_WAIT_TIME = 180000; //兜底3分钟
+                writeLog(
+                  `[Monitor] No valid saved time found, keeping default 3 mins.`,
+                );
+              }
+              //先拿到时间
               const savedTime = await mainWindow.webContents.executeJavaScript(
                 "localStorage.getItem('leigod_grace_time')",
               );
+
               const parsedTime = Number(savedTime);
               if (parsedTime && TIME_TEXT_MAP[parsedTime]) {
                 GLOBAL_GRACE_TIME = parsedTime;
@@ -846,6 +951,21 @@ try {
                 GLOBAL_GRACE_TIME = 600000;
                 writeLog(
                   "[Monitor] No valid saved time found, keeping default 10 mins.",
+                );
+              }
+              //再拿到检测模式 //下次给这一块给封装成函数（如果有机会的话）
+              const savedMode = await mainWindow.webContents.executeJavaScript(
+                "localStorage.getItem('leigod_check_mode')",
+              );
+              if (savedMode) {
+                GLOBAL_CHECK_MODE = savedMode;
+                writeLog(
+                  `[Monitor] Synced check mode from frontend: ${GLOBAL_CHECK_MODE}`,
+                );
+              } else {
+                GLOBAL_CHECK_MODE = "api";
+                writeLog(
+                  `[Monitor] No valid check mode found, keeping default api.`,
                 );
               }
             } catch (err) {
@@ -989,8 +1109,9 @@ style="background:#ff9800;
           leigodSimplify.invoke("open-external", "leigod-plugin://interrupt");
         };
       } else if (div.dataset.state === "idle") {//这里处理用户自定义时间
-        const currentTime = localStorage.getItem("leigod_grace_time") || "600000"; //获取时间，如果没有就使用默认的
-        const currentMode = localStorage.getItem("leigod_check_mode") || "tasklist"; //获取检测模式，如果没有就使用默认的
+        const currentStartupTime = localStorage.getItem("leigod_startup_time") || "180000";
+        const currentGraceTime = localStorage.getItem("leigod_grace_time") || "600000"; //获取时间，如果没有就使用默认的
+        const currentMode = localStorage.getItem("leigod_check_mode") || "api"; //获取检测模式，如果没有就使用默认的
         //设置名字和遮罩
        const modal = document.createElement("div");
         modal.id = "leigod-time-modal";
@@ -1002,7 +1123,17 @@ style="background:#ff9800;
          justify-content: center; 
          align-items: center;\`;
         //时间选择按钮
-        const options = [
+          const startupOptions = [
+          { label: "15秒", value: "15000" },
+          { label: "30秒", value: "30000" },
+          { label: "1分钟", value: "60000" },
+          { label: "3分钟", value: "180000" },
+          { label: "5分钟", value: "300000" },
+          { label: "10分钟", value: "600000" },
+          { label: "15分钟", value: "900000" },
+        ];
+        const graceOptions = [
+          { label: "立即暂停", value: "100" },
           { label: "15秒", value: "15000" },
           { label: "30秒", value: "30000" },
           { label: "1分钟", value: "60000" },
@@ -1010,14 +1141,34 @@ style="background:#ff9800;
           { label: "10分钟", value: "600000" },
           { label: "15分钟", value: "900000" },
         ];
+
         // 动态生成按钮 HTML
-        let btnsHtml = "";
-        options.forEach((opt) => {
-          const isSelected = (opt.value === currentTime);
+
+        let startupBtnsHtml = "";
+        startupOptions.forEach((opt) => {
+          const isSelected = (opt.value === currentStartupTime);
           const bg = isSelected ? "#ff9800" : "#444"; // 选中的亮橙色，未选中的暗灰色
           const color = isSelected ? "#fff" : "#ccc";
-          btnsHtml +=
-            '<button class="leigod-time-btn" data-ms="' +
+          startupBtnsHtml +=
+            '<button class="leigod-startup-btn" data-ms="' +
+            opt.value +
+            '" style="background:' +
+            bg +
+            '; border:none; color:' +
+            color +
+            '; padding:8px 0; border-radius: 4px; cursor: pointer; font-size: 13px; font-family: Microsoft YaHei; transition: all 0.2s;">' +
+            opt.label +
+            '</button>';
+        });        
+
+
+        let graceBtnsHtml = "";
+        graceOptions.forEach((opt) => {
+          const isSelected = (opt.value === currentGraceTime);
+          const bg = isSelected ? "#ff9800" : "#444"; // 选中的亮橙色，未选中的暗灰色
+          const color = isSelected ? "#fff" : "#ccc";
+          graceBtnsHtml +=
+            '<button class="leigod-grace-btn" data-ms="' +
             opt.value +
             '" style="background:' +
             bg +
@@ -1028,10 +1179,11 @@ style="background:#ff9800;
             '</button>';
         });
 
+
         // 生成检测模式的按钮组
         const modeOptions = [
           { label: "原生 API (默认)", value: "api" },
-          { label: "系统兼容 ", value: "tasklist" }
+          { label: "兼容模式 ", value: "tasklist" }
         ];
         let modeBtnsHtml = "";
         modeOptions.forEach((opt) => {
@@ -1042,17 +1194,23 @@ style="background:#ff9800;
         });
 
         modal.innerHTML =
-          \`<div style="background: #2b2b2b; padding: 20px 30px; border-radius: 8px; color: #fff; text-align: center; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5); width: 280px; box-sizing: border-box;">
-          <h3 style="margin: 0 0 10px 0; font-size: 16px; font-weight: normal; color: #ff9800;">设置等待时间</h3>
+          \`<div style="background: #2b2b2b; padding: 20px 30px; border-radius: 8px; color: #fff; text-align: center; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5); width: 340px; box-sizing: border-box;">
+           <h3 style="margin: 0 0 10px 0; font-size: 16px; font-weight: normal; color: #ff9800;">首次启动等待时间</h3>
+          <p style="font-size: 13px; color: #aaa; margin: 0 0 20px 0; line-height: 1.5; text-align: left;">
+              请选择开启加速后，多长时间后未检测到游戏进程，则自动暂停加速。
+          </p>
+          <div style="display: grid; grid-template-columns:  repeat(3, 1fr); gap: 12px;">
+        \${startupBtnsHtml}
+          </div>
+          <h3 style="margin: 0 0 10px 0; font-size: 16px; font-weight: normal; color: #ff9800;">游戏退出等待时间</h3>
           <p style="font-size: 13px; color: #aaa; margin: 0 0 20px 0; line-height: 1.5; text-align: left;">
               请选择游戏进程结束后，多长时间自动暂停加速。
           </p>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-        \${btnsHtml}
-          </div>
-          <hr style="border: none; border-top: 1px solid #444; margin: 0 0 15px 0;">
+          <div style="display: grid; grid-template-columns:  repeat(3, 1fr); gap: 12px;">
+        \${graceBtnsHtml}
+          </div>        
           <h3 style="margin: 0 0 10px 0; font-size: 16px; font-weight: normal; color: #ff9800;">进程检测模式</h3>
-          <p style="font-size: 12px; color: #aaa; margin: 0 0 15px 0; line-height: 1.5; text-align: left;">如使用api模式导致某些游戏无法进入，请尝试切换至系统兼容模式。</p>
+          <p style="font-size: 12px; color: #aaa; margin: 0 0 15px 0; line-height: 1.5; text-align: left;">如使用api模式导致某些游戏无法进入，请尝试切换至兼容模式。</p>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
             \${modeBtnsHtml}
           </div>
@@ -1061,17 +1219,32 @@ style="background:#ff9800;
         modal.onclick = (e) => { //点击遮罩层关闭面板
           if (e.target === modal) modal.remove();
         };
-
         
-  const timeBtns = modal.querySelectorAll(".leigod-time-btn");
-        timeBtns.forEach((btn) => {
+        // 启动项的按钮逻辑
+        const startupBtns = modal.querySelectorAll(".leigod-startup-btn");
+        startupBtns.forEach((btn) => {
+          btn.onmouseenter = () => { if (btn.style.backgroundColor !== "rgb(255, 152, 0)") btn.style.backgroundColor = "#555"; };
+          btn.onmouseleave = () => { if (btn.style.backgroundColor !== "rgb(255, 152, 0)") btn.style.backgroundColor = "#444"; };
+          btn.onclick = () => {
+            const ms = btn.getAttribute("data-ms");
+            localStorage.setItem("leigod_startup_time", ms);
+            window.leigodSimplify.invoke("open-external", "leigod-plugin://set-startup-time?ms=" + ms);
+            //启动项的按钮逻辑
+            startupBtns.forEach(b => { b.style.backgroundColor = "#444"; b.style.color = "#ccc"; }); //重置所有按钮
+            btn.style.backgroundColor = "#ff9800"; btn.style.color = "#fff"; //高亮当前按钮
+          };
+        });
+
+       //游戏退出等待时间的按钮逻辑
+        const graceBtns = modal.querySelectorAll(".leigod-grace-btn");
+        graceBtns.forEach((btn) => {
           btn.onmouseenter = () => { if (btn.style.backgroundColor !== "rgb(255, 152, 0)") btn.style.backgroundColor = "#555"; };
           btn.onmouseleave = () => { if (btn.style.backgroundColor !== "rgb(255, 152, 0)") btn.style.backgroundColor = "#444"; };
           btn.onclick = () => {
             const ms = btn.getAttribute("data-ms");
             localStorage.setItem("leigod_grace_time", ms);
             window.leigodSimplify.invoke("open-external", "leigod-plugin://set-time?ms=" + ms);
-            timeBtns.forEach(b => { b.style.backgroundColor = "#444"; b.style.color = "#ccc"; });
+            graceBtns.forEach(b => { b.style.backgroundColor = "#444"; b.style.color = "#ccc"; });
             btn.style.backgroundColor = "#ff9800"; btn.style.color = "#fff";
           };
         });
