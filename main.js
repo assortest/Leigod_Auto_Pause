@@ -66,6 +66,7 @@ try {
     3570: "WorldOfWarships64.exe,WorldOfWarships.exe,Korabli64.exe,Korabli.exe", //战舰世界莱福
     2925: "InphaseNXD.exe",
     4804: "PathOfExile2_x64Steam.exe,PathOfExileSteam.exe,PathOfExile2EGS.exe,PathOfExile2_x64.exe,PathOfExileEGS.exe,PathOfExile2.exe,PathOfExile_x64.exe,PathOfExile_x64Steam.exe,PathOfExile_x64EGS.exe",
+    4330: "WS-Win64-Shipping.exe", //灵魂面甲
   };
   const ExcludedGameIDs = [109, 437, 1544, 274, 1921, 1342, 860, 2529]; //steam epic 暴雪 育碧uplay eaapp  rockstar GOG 远程同乐
   const UI_STATES = {
