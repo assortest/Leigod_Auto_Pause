@@ -766,17 +766,67 @@ try {
   }
   //该函数用于从Leigod API获取游戏信息
   async function fetchFromLeigodAPI(mainWindow, game_id) {
+    //大概就是先调用aip如果不行再通过http获取
+    let result = null;
     try {
-      const result = await mainWindow.webContents.executeJavaScript(
+      result = await mainWindow.webContents.executeJavaScript(
         `window.leigodSimplify.invoke("get-game-info", {game_id: ${game_id}})`,
       );
       writeLog(`[fetchFromLeigodAPI] Game info: ${JSON.stringify(result)}`);
-      return result;
     } catch (error) {
       writeLog(`[fetchFromLeigodAPI] Error fetching game info: ${error}`);
+    }
+    if (!Array.isArray(result) ) {
+      writeLog(`[fetchFromLeigodAPI] IPC returned null, fallback to HTTP`);
+      result = await queryGameInfoByHttp(mainWindow, game_id);
+    }
+    if (!Array.isArray(result) ) {
+      writeLog(`[fetchFromLeigodAPI] Api failed`);
+    }
+    return result;
+  }
+
+  //该函数用于通过HTTP获取游戏信息
+  async function queryGameInfoByHttp(mainWindow, game_id) {
+    const API_URL = "https://api2.leigod.com/client/game/area/info/nn";
+    //把要发送的结果加密
+    try {
+      const encryptData = await mainWindow.webContents.executeJavaScript(
+        `window.leigodSimplify.invoke("encrypt-data", {game_id: ${game_id}})`,
+      );
+      //发送http请求
+      let encryptresult;
+      try {
+        encryptresult = await new Promise((resolve, reject) => {
+          execFile(
+            "curl.exe",
+            ["-s", "-X", "POST", API_URL, "-d", encryptData, "-m", "8"],
+            {
+              encoding: "utf8",
+            },
+            (err, stdout) => {
+              if (err) reject(err);
+              else resolve(stdout);
+            },
+          );
+        });
+      } catch (error) {
+        writeLog(`[queryGameInfoByHttp] Error in curl command: ${error}`);
+        return null;
+      }
+      //拿到结果解密
+      let result = await mainWindow.webContents.executeJavaScript(
+        `window.leigodSimplify.invoke("decrypt-data", ${JSON.stringify(encryptresult)})`,
+      );
+      result = result?.data;
+      writeLog(`[queryGameInfoByHttp] Data: ${JSON.stringify(result)}`);
+      return result;
+    } catch (error) {
+      writeLog(`[queryGameInfoByHttp] Error: ${error}`);
       return null;
     }
   }
+
   //该函数用于获取游戏信息，同时从IndexedDB以及Leigod API中中获取，然后优先判断Leigod API中是否有进程IndexedDB作为兜底
   async function getGameInfoStrategies(mainWindow, game_id) {
     const [dbInfo, apiResult] = await Promise.all([
@@ -925,8 +975,9 @@ try {
                 await mainWindow.webContents.executeJavaScript(
                   "localStorage.getItem('leigod_startup_time')",
                 );
-              if (savedStartupTime) {
-                GLOBAL_STARTUP_WAIT_TIME = savedStartupTime;
+              const parsedStartupTime = Number(savedStartupTime);
+              if (parsedStartupTime && TIME_TEXT_MAP[parsedStartupTime]) {
+                GLOBAL_STARTUP_WAIT_TIME = parsedStartupTime;
                 writeLog(
                   `[Monitor] Synced startup time from frontend: ${GLOBAL_STARTUP_WAIT_TIME}ms`,
                 );
