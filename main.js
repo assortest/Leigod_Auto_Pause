@@ -68,7 +68,7 @@ try {
     4804: "PathOfExile2_x64Steam.exe,PathOfExileSteam.exe,PathOfExile2EGS.exe,PathOfExile2_x64.exe,PathOfExileEGS.exe,PathOfExile2.exe,PathOfExile_x64.exe,PathOfExile_x64Steam.exe,PathOfExile_x64EGS.exe",
     4330: "WS-Win64-Shipping.exe", //灵魂面甲
   };
-  const ExcludedGameIDs = [109, 437, 1544, 274, 1921, 1342, 860, 2529]; //steam epic 暴雪 育碧uplay eaapp  rockstar GOG 远程同乐
+  const ExcludedGameIDs = [109, 437, 1544, 274, 1921, 1342, 860, 2529,4371]; //steam epic 暴雪 育碧uplay eaapp  rockstar GOG 远程同乐 碧蓝幻想
   const UI_STATES = {
     //监控中
     ACTIVE: {
@@ -776,11 +776,11 @@ try {
     } catch (error) {
       writeLog(`[fetchFromLeigodAPI] Error fetching game info: ${error}`);
     }
-    if (!Array.isArray(result) ) {
+    if (!Array.isArray(result)) {
       writeLog(`[fetchFromLeigodAPI] IPC returned null, fallback to HTTP`);
       result = await queryGameInfoByHttp(mainWindow, game_id);
     }
-    if (!Array.isArray(result) ) {
+    if (!Array.isArray(result)) {
       writeLog(`[fetchFromLeigodAPI] Api failed`);
     }
     return result;
