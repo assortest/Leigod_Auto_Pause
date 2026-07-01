@@ -1102,7 +1102,7 @@ try {
           "open-external",
           "https://github.com/assortest/Leigod_Auto_Pause?tab=readme-ov-file#-%E8%B4%A1%E7%8C%AE%E6%8C%87%E5%8D%97",
         );
-      } else if (div.dataset.state === "counting") {
+      } else if (div.dataset.state === "counting" || div.dataset.state === "waiting") {
         const modal = document.createElement("div");
         modal.id = "leigod-confirm-modal";
         modal.style.cssText = \`position: fixed;
