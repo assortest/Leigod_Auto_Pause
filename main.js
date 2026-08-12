@@ -38,7 +38,7 @@ try {
   const CommunityGameDB = {
     1559: "VALORANT-Win64-Shipping.exe", //无畏契约
     137: "vermintide2_dx12.exe,vermintide2.exe", //末世鼠疫2
-    254: "EscapeFromTarkov.exe", //逃离塔科夫
+    254: "EscapeFromTarkov.exe,EscapeFromTarkovArena.exe", //逃离塔科夫
     9942: "EscapeFromTarkov.exe", //逃离塔科夫
     5226: "PioneerGame.exe,PioneerGame-d.exe,PioneerGame-e.exe", //ARC Raiders
     7288: "Aion2.exe", //永恒之塔2
