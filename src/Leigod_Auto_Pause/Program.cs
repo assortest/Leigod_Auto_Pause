@@ -37,6 +37,7 @@ class Program
                     if(GetConsoleWindow() != IntPtr.Zero)
                     {
                         Console.WriteLine($"尝试从此处下载: {url}"); // 如需输出可取消注释
+
                     }
                     
                     byte[] fileBytes = await client.GetByteArrayAsync(url); //采用二进制防止编码问题
@@ -50,7 +51,12 @@ class Program
                     if (GetConsoleWindow() != IntPtr.Zero)
                     {
                         Console.WriteLine($"从 {url} 下载文件失败: {ex.Message}");
+
+                        Console.ForegroundColor = ConsoleColor.Red;
+                        Console.WriteLine(ex.ToString());
+                        Console.ResetColor();
                     }
+                        
 
                 }
             }
