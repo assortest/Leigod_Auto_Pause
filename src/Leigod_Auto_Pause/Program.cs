@@ -1,4 +1,4 @@
-﻿
+
 using AsarSharp;
 using System.Security.Principal;
 using SettingManager;
@@ -10,13 +10,56 @@ class Program
     private static extern bool AllocConsole();
     [System.Runtime.InteropServices.DllImport("kernel32.dll")]
     private static extern bool FreeConsole();
+    [System.Runtime.InteropServices.DllImport("kernel32.dll")]
+    private static extern IntPtr GetConsoleWindow();
 
     [System.Runtime.InteropServices.DllImport("user32.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
     public static extern int MessageBox(IntPtr hWnd, string text, string caption, uint type);
-
-    static string jsDownloadUrl = "https://gitee.com/assortest/Leigod_Auto_Pause/raw/main/main.js"; //使用了
     static string fileToReplace = "dist/main/main.js";
 
+
+    static readonly string[] jsDownloadUrls =
+   {
+        "https://gitee.com/assortest/Leigod_Auto_Pause/raw/main/main.js", // 主节点
+        "https://raw.githubusercontent.com/assortest/Leigod_Auto_Pause/refs/heads/main/main.js"          // 备用节点
+    };
+
+    public static async Task<byte[]> DownloadJsFileAsync()
+    { //用于拉取文件内容
+        using (var client = new HttpClient())
+        {
+            client.DefaultRequestHeaders.Add("User-Agent", "Leigod Auto Pause Patch Tool");
+            client.Timeout = TimeSpan.FromSeconds(10); //设置一个超时时间，防止长时间等待
+            foreach (var url in jsDownloadUrls)
+            {
+                try
+                {
+                    if(GetConsoleWindow() != IntPtr.Zero)
+                    {
+                        Console.WriteLine($"尝试从此处下载: {url}"); // 如需输出可取消注释
+                    }
+                    
+                    byte[] fileBytes = await client.GetByteArrayAsync(url); //采用二进制防止编码问题
+                    if (fileBytes != null && fileBytes.Length > 0)
+                    {
+                        return fileBytes; // 成功下载，返回文件内容
+                    }
+                }
+                catch (Exception ex)
+                {
+                    if (GetConsoleWindow() != IntPtr.Zero)
+                    {
+                        Console.WriteLine($"从 {url} 下载文件失败: {ex.Message}");
+                    }
+
+                }
+            }
+            throw new Exception("所有下载节点均失败，请检查网络连接或稍后再试。");
+
+
+
+        }
+    }
 
 
 
@@ -80,7 +123,7 @@ class Program
             //如果需要更新，执行更新逻辑 并且显示控制台窗口
 
             Console.WriteLine($"正在查找目标文件");
-            Thread.Sleep(2000);
+            Thread.Sleep(1000);
             if (!File.Exists(asarpath))
             {
                 throw new FileNotFoundException("未找到文件,请吧当前软件放入雷神加速器的根目录！");
@@ -92,25 +135,21 @@ class Program
             Directory.CreateDirectory(tempDir); //创建目录
             Console.WriteLine("正在解压 app.asar 文件...");
 
-            using (var extractor = new AsarExtractor(asarpath, tempDir))  //处理解压文件
-            {
-                extractor.Extract();
-            }
+            var extractor = new AsarExtractor(asarpath, tempDir);
+
+            extractor.Extract();
+            extractor.Dispose();
+
             Console.WriteLine("目标解压完成");
 
             //处理下载文件
-            Console.WriteLine("正在从 GitHub 下载文件...");
-            Console.WriteLine($"URL: {jsDownloadUrl}");
-            byte[] fileBytes;
-            using (var Client = new HttpClient())
-            {
-                Client.DefaultRequestHeaders.Add("User-Agent", "Leigod Auto Pause Patch Tool");
-                fileBytes = await Client.GetByteArrayAsync(jsDownloadUrl); //采用二进制防止编码问题
-                string fileToreplacePath = Path.Combine(tempDir, fileToReplace);
-                await File.WriteAllBytesAsync(fileToreplacePath, fileBytes);//替换文件
-                Console.WriteLine("文件下载并替换成功！");
+            Console.WriteLine("正在拉取文件...");
+            byte[] fileBytes = await DownloadJsFileAsync();
+            string fileToreplacePath = Path.Combine(tempDir, fileToReplace);
+            await File.WriteAllBytesAsync(fileToreplacePath, fileBytes);//替换文件
+            Console.WriteLine("文件下载并替换成功！");
 
-            }
+
 
             string backupAsarPath = asarpath + ".bak";
             if (!(File.Exists(backupAsarPath)))
@@ -121,14 +160,14 @@ class Program
             Console.WriteLine("正在重新打包文件");
 
             var archiver = new AsarArchiver(tempDir, asarpath);
-            
+
             archiver.Archive();
             archiver.Dispose();//我服了这里需要手动释放否则会文件被占用 弄死我了
             Console.WriteLine("打包完成！");
             Console.WriteLine("正在用新文件覆盖原文件...");
             Console.WriteLine("操作成功！");
             Console.WriteLine("正在更新状态信息...");
-            Thread.Sleep(2000); //等待2秒 防止archiver没释放
+            Thread.Sleep(1000); //等待1秒 防止archiver没释放
             string newAsarHash = GetFileSha256(asarpath);
             string newJsHash = GetBytesSha256(fileBytes);
 
@@ -172,24 +211,22 @@ class Program
         string currentAsarHash = GetFileSha256(asarpath);
         if (!string.Equals(currentAsarHash, settings.PatchedAsarHash, StringComparison.OrdinalIgnoreCase))
         {
-     
+
             return true;
         }
 
         //检查插件是否需要更新
 
-        using (var Client = new HttpClient())
+
+        byte[] jsBytes = await DownloadJsFileAsync();
+
+        string remoteJsHash = GetBytesSha256(jsBytes);
+        if (!string.Equals(remoteJsHash, settings.AppliedJsHash, StringComparison.OrdinalIgnoreCase))
         {
-            Client.DefaultRequestHeaders.Add("User-Agent", "Leigod Auto Pause Patch Tool");
-            byte[] jsBytes = await Client.GetByteArrayAsync(jsDownloadUrl); //采用二进制防止编码问题
-
-            string remoteJsHash = GetBytesSha256(jsBytes);
-            if (!string.Equals(remoteJsHash, settings.AppliedJsHash, StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
-
+            return true;
         }
+
+
         //不需要更新
         return false;
     }
@@ -244,7 +281,7 @@ class Program
             {
                 string errorMessage = $"未找到雷神加速器主程序：\n\n" +
                     $"\n\n请确保本启动器与 leigod.exe 放置在同一个目录下。";
-                MessageBox(IntPtr.Zero, errorMessage, "启动失败", 0x10); 
+                MessageBox(IntPtr.Zero, errorMessage, "启动失败", 0x10);
 
             }
         }
