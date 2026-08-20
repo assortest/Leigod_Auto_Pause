@@ -70,6 +70,8 @@ try {
     4330: "WS-Win64-Shipping.exe", //灵魂面甲
     2740: "Diablo IV.exe", //暗黑破坏神4
     1544: "Battle.net.exe", //战网
+    2642:"ffxivboot.exe,ffxivboot64.exe,ffxivlauncher.exe,FINAL FANTASY XIV.exe",//ff14
+    8668:"Arknights.exe",//明日方舟国服
   };
   const ExcludedGameIDs = [109, 437, 274, 1921, 1342, 860, 2529, 4371]; //steam epic 育碧uplay eaapp  rockstar GOG 远程同乐 碧蓝幻想
   const UI_STATES = {
@@ -234,6 +236,12 @@ try {
       writeLog(`[Monitor] Set target processes to: ${this.targetProcesses}`);
       //检查初始状态
       const isProcessRunning = await this._checkProcessExists();
+      if (this.targetProcesses.length === 0) { //如果在检查过程中被清空了就直接返回防止出现异常
+        writeLog("[Monitor] Target processes cleared during check. Aborting.");
+        return;
+      }
+
+
       if (isProcessRunning) {
         //如果进程正在运行
         writeLog(
@@ -257,7 +265,7 @@ try {
         updateUiState("IDLE");
         this._generation++;
         this.targetProcesses = [];
-        if (this._startDebounceTimer) {
+        if (this._startDebounceTimer) {//为了防止某些神人用户来玩极限操作 
           clearTimeout(this._startDebounceTimer);
           this._startDebounceTimer = null;
         }
@@ -887,6 +895,34 @@ try {
     }
     let gameProcessList = [];
     try {
+      if (ExcludedGameIDs.includes(gameInfoArg.game_id)) { //如果是排除项目就直接返回
+        showStartupNotification(
+          "自动暂停已跳过",
+          "检测到当前加速项属于平台或免费项，自动暂停功能已跳过，请务必留意加速时长。",
+          false,
+        );
+        writeLog(
+          `[GameMonitoring] Game ID ${gameInfoArg.game_id} is in the exclusion list. ignored.`,
+        );
+        return;
+      }
+      //  获取游戏信息，用于判断是否免费
+      let GameInfo = await getGameInfoStrategies(
+        mainWindow,
+        gameInfoArg.game_id,
+      );
+      if (GameInfo && GameInfo.is_free === "1") { //如果是免费加速项就直接返回
+        showStartupNotification(
+          "自动暂停已跳过",
+          "检测到当前加速项属于平台或免费项，自动暂停功能已跳过，请务必留意加速时长。",
+          false,
+        );
+        writeLog(
+          `[GameMonitoring] Game ID ${gameInfoArg.game_id} is a free acceleration item. ignored.`,
+        );
+        return;
+      }
+      //如果是不是免费项目，优先检查社区游戏数据库
       if (CommunityGameDB[String(gameInfoArg.game_id)]) {
         //先检查社区游戏数据库，防止雷神数据库中的进程名有假（我服了，雷神的进程库还有假的进程名，这个和写假注释一样可恶！他猫猫的）
         gameProcessList = parseGameProcess(
@@ -898,26 +934,6 @@ try {
           )}`,
         );
         MonitoringManager.start(gameProcessList);
-        return;
-      }
-      //如果社区数据库没有就尝试从IndexedDB和api中获取游戏信息
-      let GameInfo = await getGameInfoStrategies(
-        mainWindow,
-        gameInfoArg.game_id,
-      );
-      /*判断是不是在排除项目，其次看看是不是免费加速的。如果是免费或者平台就不进入状态机*/
-      if (
-        GameInfo &&
-        (ExcludedGameIDs.includes(GameInfo.id) || GameInfo.is_free === "1")
-      ) {
-        showStartupNotification(
-          "自动暂停已跳过",
-          "检测到当前加速项属于平台或免费项，自动暂停功能已跳过，请务必留意加速时长。",
-          false,
-        );
-        writeLog(
-          `[GameMonitoring] Game ID ${GameInfo.id} is in the exclusion list. ignored.`,
-        );
         return;
       }
       //如果GameInfo 不为空
