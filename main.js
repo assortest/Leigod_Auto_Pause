@@ -70,9 +70,9 @@ try {
     4330: "WS-Win64-Shipping.exe", //灵魂面甲
     2740: "Diablo IV.exe", //暗黑破坏神4
     1544: "Battle.net.exe", //战网
-    2642:"ffxivboot.exe,ffxivboot64.exe,ffxivlauncher.exe,FINAL FANTASY XIV.exe",//ff14
-    8668:"Arknights.exe,MuMuNxDevice.exe,MuMuNxMain.exe",//明日方舟国服
-    2223:"MuMuNxDevice.exe,NemuService.exe,NemuPlayer.exe,MuMuNxMain.exe",//mumu
+    2642:"ffxivboot.exe,ffxivboot64.exe,ffxivlauncher.exe,FINAL FANTASY XIV.exe,ffxiv_dx11.exe,ffxiv.exe",//ff14
+    8668:"Arknights.exe,MuMuNxDevice.exe",//明日方舟国服
+    2223:"MuMuNxDevice.exe,NemuService.exe,NemuPlayer.exe",//明日方舟国际服
   };
   const ExcludedGameIDs = [109, 437, 274, 1921, 1342, 860, 2529, 4371]; //steam epic 育碧uplay eaapp  rockstar GOG 远程同乐 碧蓝幻想
   const UI_STATES = {
