@@ -3,6 +3,7 @@ using AsarSharp;
 using System.Security.Principal;
 using SettingManager;
 using System.Diagnostics;
+using System.Text.Json;
 
 class Program
 {
@@ -15,7 +16,7 @@ class Program
 
     [System.Runtime.InteropServices.DllImport("user32.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
     public static extern int MessageBox(IntPtr hWnd, string text, string caption, uint type);
-    static string fileToReplace = "dist/main/main.js";
+    static string newFileName = "dist/main/Entry.js";
 
 
     static readonly string[] jsDownloadUrls =
@@ -36,7 +37,7 @@ class Program
                 {
                     if(GetConsoleWindow() != IntPtr.Zero)
                     {
-                        Console.WriteLine($"尝试从此处下载: {url}"); // 如需输出可取消注释
+                        Console.WriteLine($"尝试从此处下载: {url}"); 
 
                     }
                     
@@ -151,10 +152,32 @@ class Program
             //处理下载文件
             Console.WriteLine("正在拉取文件...");
             byte[] fileBytes = await DownloadJsFileAsync();
-            string fileToreplacePath = Path.Combine(tempDir, fileToReplace);
-            await File.WriteAllBytesAsync(fileToreplacePath, fileBytes);//替换文件
-            Console.WriteLine("文件下载并替换成功！");
+            string newFilePath = Path.Combine(tempDir, newFileName);
+            await File.WriteAllBytesAsync(newFilePath, fileBytes);//替换文件
+            Console.WriteLine("文件下载并创建成功！");
+            string jsonPath = Path.Combine(tempDir, "package.json");//打开json
+            if (!File.Exists(jsonPath))
+            {
+                Console.WriteLine("无法得到package.json文件");
+                throw new FileNotFoundException($"找不到文件: {jsonPath}");
+            }
+            string json = await File.ReadAllTextAsync(jsonPath);
+            var options = new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true,   
+                ReadCommentHandling = JsonCommentHandling.Skip,  
+                AllowTrailingCommas = true                       
+            };
+            PackageJson pkg = JsonSerializer.Deserialize<PackageJson>(json, options); //反序列化
+            pkg.Main = newFileName; //修改入口文件
 
+            var writeOptions = new JsonSerializerOptions //文件写回
+            {
+                WriteIndented = true,                          // 保持缩进,可读
+                Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping  // 中文不转义
+            };
+            string updatedJson = JsonSerializer.Serialize(pkg, writeOptions);
+            await File.WriteAllTextAsync(jsonPath, updatedJson);
 
 
             string backupAsarPath = asarpath + ".bak";
