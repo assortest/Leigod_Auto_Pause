@@ -79,7 +79,8 @@ try {
     4265:"AbioticFactor-Win64-Shipping.exe,AbioticFactor.exe",//无机因素
     5285:"Buckshot Roulette.exe",//Buckshot Roulette
     1213:"osu!.exe",
-    8638:"muv_luv_girlsgarden_cl.exe,muv_luv_girlsgardenx_cl.exe"
+    8638:"muv_luv_girlsgarden_cl.exe,muv_luv_girlsgardenx_cl.exe",
+    4570:"cod.exe,codCrashHandler.exe,sp22-codCrashHandler.exe,sp22-cod.exe,mp22-cod.exe,mp22-codCrashHandler.exe,bootstrapperCrashHandler.exe,bootstrapper.exe,nvngx_update.exe,cod22-cod.exe,mp23-cod.exe,sp23-cod.exe,gslbexternal.exe,mp24-cod.exe,CrashLogsGenerator.exe,sp24-cod.exe,sp26-cod.exe,cod24-cod.exe,cod25-cod.exe,BlackOps6.exe,cod23-cod.exe,cod26-cod.exe" //使命召唤
   };
   const ExcludedGameIDs = [109, 437, 274, 1921, 1342, 860, 2529, 4371]; //steam epic 育碧uplay eaapp  rockstar GOG 远程同乐 碧蓝幻想
   const UI_STATES = {
